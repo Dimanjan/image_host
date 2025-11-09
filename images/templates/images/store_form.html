@@ -1,0 +1,24 @@
+{% extends 'images/base.html' %}
+
+{% block title %}{{ action }} Store - Image Host{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 2rem auto;">
+    <h2 style="margin-bottom: 1.5rem;">{{ action }} Store</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="id_name">Store Name</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div style="color: #e74c3c; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.name.errors }}
+                </div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-success">{{ action }} Store</button>
+        <a href="{% url 'store_list' %}" class="btn" style="margin-left: 1rem;">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+

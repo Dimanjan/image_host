@@ -1,0 +1,229 @@
+{% extends 'images/base.html' %}
+
+{% block title %}{{ store.name }} - Image Host{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <a href="{% url 'store_list' %}" class="btn" style="margin-bottom: 1rem;">← Back to Stores</a>
+    <h2>{{ store.name }}</h2>
+</div>
+
+<!-- Categories -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">Product Categories</h3>
+        <a href="{% url 'category_create' store.id %}" class="btn btn-success">Create Category</a>
+    </div>
+    
+    {% if categories %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Category Name</th>
+                    <th>Products</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'category_detail' category.id %}" style="color: #3498db; text-decoration: none; font-weight: 500;">
+                                {{ category.name }}
+                            </a>
+                        </td>
+                        <td>{{ category.products.count }} product(s)</td>
+                        <td>
+                            <a href="{% url 'category_detail' category.id %}" class="btn">View</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="text-align: center; color: #666; padding: 2rem;">
+            No categories yet. <a href="{% url 'category_create' store.id %}">Create your first category</a> to get started!
+        </p>
+    {% endif %}
+</div>
+
+<!-- All Image URLs -->
+{% if images_by_category %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">All Image URLs</h3>
+        <button class="btn btn-success" id="copyAllUrls" style="padding: 0.75rem 1.5rem;">
+            📋 Copy All URLs
+        </button>
+    </div>
+    
+    {% for category_data in images_by_category %}
+        <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 2px solid #eee;">
+            <h4 style="color: #2c3e50; margin-bottom: 1rem; font-size: 1.2rem;">
+                📁 {{ category_data.category.name }}
+            </h4>
+            
+            {% for product_data in category_data.products %}
+                <div style="margin-bottom: 1.5rem; margin-left: 1.5rem; padding-left: 1rem; border-left: 3px solid #3498db;">
+                    <h5 style="color: #3498db; margin-bottom: 0.75rem; font-size: 1rem;">
+                        📦 {{ product_data.product.name }}
+                    </h5>
+                    
+                    <table style="width: 100%; margin-top: 0.5rem;">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Image Name</th>
+                                <th style="width: 20%;">Image Code</th>
+                                <th style="width: 45%;">Image URL</th>
+                                <th style="width: 5%;">Copy</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for image in product_data.images %}
+                                <tr>
+                                    <td>{{ image.name }}</td>
+                                    <td style="font-family: monospace; font-size: 0.875rem;">{{ image.image_code }}</td>
+                                    <td>
+                                        <input type="text" 
+                                               value="{{ image.url }}" 
+                                               readonly 
+                                               class="form-control url-input" 
+                                               data-url="{{ image.url }}"
+                                               data-store="{{ store.name }}"
+                                               data-category="{{ category_data.category.name }}"
+                                               data-product="{{ product_data.product.name }}"
+                                               data-label="{{ image.name }}"
+                                               data-code="{{ image.image_code }}"
+                                               style="font-size: 0.875rem; font-family: monospace; cursor: pointer;"
+                                               onclick="this.select();">
+                                    </td>
+                                    <td>
+                                        <button class="btn copy-btn" 
+                                                data-url="{{ image.url }}"
+                                                style="padding: 0.5rem 1rem; font-size: 0.875rem;"
+                                                onclick="copyToClipboard('{{ image.url }}', this)">
+                                            📋 Copy
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function copyToClipboard(text, button) {
+        navigator.clipboard.writeText(text).then(function() {
+            // Show success feedback
+            const originalText = button.innerHTML;
+            button.innerHTML = '✓ Copied!';
+            button.style.backgroundColor = '#27ae60';
+            
+            setTimeout(function() {
+                button.innerHTML = originalText;
+                button.style.backgroundColor = '#3498db';
+            }, 2000);
+        }).catch(function(err) {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                const originalText = button.innerHTML;
+                button.innerHTML = '✓ Copied!';
+                button.style.backgroundColor = '#27ae60';
+                setTimeout(function() {
+                    button.innerHTML = originalText;
+                    button.style.backgroundColor = '#3498db';
+                }, 2000);
+            } catch (err) {
+                alert('Failed to copy: ' + err);
+            }
+            document.body.removeChild(textarea);
+        });
+    }
+    
+    // Add click handler to all copy buttons
+    document.querySelectorAll('.copy-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const url = this.getAttribute('data-url');
+            copyToClipboard(url, this);
+        });
+    });
+    
+    // Master copy all URLs button
+    const copyAllBtn = document.getElementById('copyAllUrls');
+    if (copyAllBtn) {
+        copyAllBtn.addEventListener('click', function() {
+            // Collect all image details
+            const allDetails = [];
+            document.querySelectorAll('.url-input').forEach(function(input) {
+                const store = input.getAttribute('data-store');
+                const category = input.getAttribute('data-category');
+                const product = input.getAttribute('data-product');
+                const label = input.getAttribute('data-label');
+                const code = input.getAttribute('data-code');
+                const url = input.getAttribute('data-url');
+                
+                // Format: Store | Category | Product | Label | Code | URL
+                allDetails.push(`${store} | ${category} | ${product} | ${label} | ${code} | ${url}`);
+            });
+            
+            if (allDetails.length === 0) {
+                alert('No URLs to copy!');
+                return;
+            }
+            
+            // Add header row
+            const header = 'Store | Category | Product | Image Label | Image Code | Image URL';
+            const allDetailsText = header + '\n' + '='.repeat(header.length) + '\n' + allDetails.join('\n');
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(allDetailsText).then(function() {
+                // Show success feedback
+                const originalText = copyAllBtn.innerHTML;
+                copyAllBtn.innerHTML = '✓ All Copied!';
+                copyAllBtn.style.backgroundColor = '#27ae60';
+                
+                setTimeout(function() {
+                    copyAllBtn.innerHTML = originalText;
+                    copyAllBtn.style.backgroundColor = '#27ae60';
+                }, 2000);
+            }).catch(function(err) {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = allDetailsText;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    const originalText = copyAllBtn.innerHTML;
+                    copyAllBtn.innerHTML = '✓ All Copied!';
+                    copyAllBtn.style.backgroundColor = '#27ae60';
+                    setTimeout(function() {
+                        copyAllBtn.innerHTML = originalText;
+                        copyAllBtn.style.backgroundColor = '#27ae60';
+                    }, 2000);
+                } catch (err) {
+                    alert('Failed to copy: ' + err);
+                }
+                document.body.removeChild(textarea);
+            });
+        });
+    }
+</script>
+{% endblock %}

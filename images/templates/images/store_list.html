@@ -1,0 +1,46 @@
+{% extends 'images/base.html' %}
+
+{% block title %}Stores - Image Host{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h2>My Stores</h2>
+    <a href="{% url 'store_create' %}" class="btn btn-success">Create New Store</a>
+</div>
+
+{% if stores %}
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Store Name</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for store in stores %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'store_detail' store.id %}" style="color: #3498db; text-decoration: none; font-weight: 500;">
+                                {{ store.name }}
+                            </a>
+                        </td>
+                        <td>{{ store.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <a href="{% url 'store_detail' store.id %}" class="btn">View</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="card">
+        <p style="text-align: center; color: #666; padding: 2rem;">
+            No stores yet. <a href="{% url 'store_create' %}">Create your first store</a> to get started!
+        </p>
+    </div>
+{% endif %}
+{% endblock %}
+

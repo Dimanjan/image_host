@@ -1,0 +1,31 @@
+{% extends 'images/base.html' %}
+
+{% block title %}{{ action }} Product - Image Host{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 2rem auto;">
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'category_detail' category.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Category</a>
+    </div>
+    <h2 style="margin-bottom: 1.5rem;">{{ action }} Product</h2>
+    <p style="color: #666; margin-bottom: 1rem;">
+        Store: <strong>{{ category.store.name }}</strong> → 
+        Category: <strong>{{ category.name }}</strong>
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="id_name">Product Name</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div style="color: #e74c3c; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.name.errors }}
+                </div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-success">{{ action }} Product</button>
+        <a href="{% url 'category_detail' category.id %}" class="btn" style="margin-left: 1rem;">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+

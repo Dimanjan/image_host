@@ -1,0 +1,307 @@
+{% extends 'images/base.html' %}
+
+{% block title %}API Test - Image Host{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 2rem auto;">
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">Product Search API Test</h2>
+        <p style="color: #666; margin-bottom: 1.5rem;">
+            Search for products by name and get their image URLs
+        </p>
+        
+        <form id="searchForm" style="margin-bottom: 2rem;">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="productName">Product Name</label>
+                <input type="text" 
+                       id="productName" 
+                       name="product_name" 
+                       class="form-control" 
+                       placeholder="Enter product name to search..."
+                       required
+                       style="margin-bottom: 1rem;">
+            </div>
+            <button type="submit" class="btn btn-success">Search</button>
+        </form>
+        
+        <div id="loading" style="display: none; text-align: center; padding: 2rem;">
+            <p>Searching...</p>
+        </div>
+        
+        <div id="results" style="display: none;">
+            <h3 style="margin-bottom: 1rem;">Search Results</h3>
+            <div id="resultsContent"></div>
+        </div>
+        
+        <div id="jsonResponse" style="display: none; margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">JSON Response</h3>
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; border: 1px solid #ddd;">
+                <button class="btn" id="copyJsonBtn" style="margin-bottom: 1rem; padding: 0.5rem 1rem; font-size: 0.875rem;">
+                    📋 Copy JSON
+                </button>
+                <pre id="jsonContent" style="background: white; padding: 1rem; border-radius: 4px; overflow-x: auto; margin: 0; font-size: 0.875rem; max-height: 500px; overflow-y: auto;"></pre>
+            </div>
+        </div>
+        
+        <div id="error" style="display: none;" class="message error"></div>
+    </div>
+    
+    <div class="card" style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem;">API Documentation</h3>
+        <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.875rem;">
+            <p><strong>Endpoint:</strong> POST /api/search-product/</p>
+            <p><strong>Parameter:</strong> product_name (string)</p>
+            <p><strong>Response Format:</strong> JSON</p>
+            <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem; margin-bottom: 1rem;">
+                <h4 style="margin-bottom: 0.5rem; color: #2c3e50;">Search Algorithm:</h4>
+                <p style="margin: 0.5rem 0; color: #333;">
+                    The search uses a <strong>two-tier approach</strong>:
+                </p>
+                <ol style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
+                    <li><strong>Exact/Partial Match:</strong> First tries case-insensitive partial matching (Django's <code>icontains</code>)</li>
+                    <li><strong>Fuzzy Search:</strong> If no exact matches, uses fuzzy matching to find similar product names even with typos</li>
+                </ol>
+                <ul style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
+                    <li><strong>Case-insensitive:</strong> "power", "Power", "POWER" all match the same</li>
+                    <li><strong>Partial match:</strong> Searching "power" will find "Power Bank", "Power Supply", etc.</li>
+                    <li><strong>Fuzzy matching:</strong> Handles typos - "powr bank" will still find "Power Bank"</li>
+                    <li><strong>Similarity scoring:</strong> Results are ranked by similarity score (0-100%)</li>
+                    <li><strong>Minimum threshold:</strong> Fuzzy matches require at least 60% similarity</li>
+                </ul>
+                <p style="margin: 0.5rem 0; color: #333;">
+                    <strong>Examples:</strong>
+                </p>
+                <ul style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
+                    <li>"bank" → finds "Power Bank", "Bank Charger" (exact match)</li>
+                    <li>"powr bank" → finds "Power Bank" (fuzzy match, handles typo)</li>
+                    <li>"yosnda" → finds "Yosonda" products (fuzzy match)</li>
+                </ul>
+            </div>
+            <pre style="background: white; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 1rem;">{
+  "success": true,
+  "query": "product name",
+  "count": 1,
+  "results": [
+    {
+      "store_name": "Store Name",
+      "category_name": "Category Name",
+      "product_name": "Product Name",
+      "image_count": 2,
+      "images": [
+        {
+          "image_label": "Image Label",
+          "image_code": "image_code",
+          "image_url": "http://..."
+        }
+      ]
+    }
+  ]
+}</pre>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const productName = document.getElementById('productName').value.trim();
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const resultsContent = document.getElementById('resultsContent');
+        const error = document.getElementById('error');
+        
+        // Hide previous results
+        results.style.display = 'none';
+        error.style.display = 'none';
+        document.getElementById('jsonResponse').style.display = 'none';
+        loading.style.display = 'block';
+        
+        // Make API call
+        const formData = new FormData();
+        formData.append('product_name', productName);
+        
+        // Add CSRF token if it exists
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            formData.append('csrfmiddlewaretoken', csrfToken.value);
+        }
+        
+        fetch('/api/search-product/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            loading.style.display = 'none';
+            
+            // Always display JSON response
+            displayJsonResponse(data);
+            
+            if (data.success) {
+                if (data.count === 0) {
+                    error.textContent = data.message || 'No products found';
+                    error.style.display = 'block';
+                } else {
+                    displayResults(data);
+                    results.style.display = 'block';
+                }
+            } else {
+                error.textContent = data.message || 'An error occurred';
+                error.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            loading.style.display = 'none';
+            error.textContent = 'Error: ' + err.message;
+            error.style.display = 'block';
+            
+            // Display error in JSON format too
+            displayJsonResponse({error: err.message, success: false});
+        });
+    });
+    
+    function displayJsonResponse(data) {
+        const jsonResponse = document.getElementById('jsonResponse');
+        const jsonContent = document.getElementById('jsonContent');
+        
+        jsonContent.textContent = JSON.stringify(data, null, 2);
+        jsonResponse.style.display = 'block';
+    }
+    
+    function copyJsonResponse() {
+        const jsonContent = document.getElementById('jsonContent').textContent;
+        const btn = document.getElementById('copyJsonBtn');
+        navigator.clipboard.writeText(jsonContent).then(function() {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✓ Copied!';
+            btn.style.backgroundColor = '#27ae60';
+            setTimeout(function() {
+                btn.innerHTML = originalText;
+                btn.style.backgroundColor = '#3498db';
+            }, 2000);
+        }).catch(function(err) {
+            alert('Failed to copy JSON: ' + err);
+        });
+    }
+    
+    // Add click handler for copy JSON button
+    document.addEventListener('DOMContentLoaded', function() {
+        const copyJsonBtn = document.getElementById('copyJsonBtn');
+        if (copyJsonBtn) {
+            copyJsonBtn.addEventListener('click', copyJsonResponse);
+        }
+    });
+    
+    function displayResults(data) {
+        const resultsContent = document.getElementById('resultsContent');
+        const searchType = data.search_type || 'exact';
+        const searchTypeLabel = searchType === 'fuzzy' ? ' (Fuzzy Search)' : ' (Exact Match)';
+        let html = `<p style="color: #666; margin-bottom: 1rem;">
+            <strong>Found ${data.count} product(s) matching "${data.query}"</strong>
+            <span style="color: #27ae60; font-size: 0.875rem;">${searchTypeLabel}</span>
+        </p>`;
+        
+        data.results.forEach(function(result) {
+            const similarityScore = result.similarity_score !== undefined ? result.similarity_score : 100;
+            const scoreColor = similarityScore >= 90 ? '#27ae60' : similarityScore >= 70 ? '#f39c12' : '#e74c3c';
+            html += `
+                <div style="margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #3498db;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <h4 style="margin: 0; color: #2c3e50;">
+                            ${result.product_name}
+                        </h4>
+                        ${similarityScore < 100 ? `<span style="background: ${scoreColor}; color: white; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${similarityScore}% match</span>` : ''}
+                    </div>
+                    <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
+                        Store: <strong>${result.store_name}</strong> | 
+                        Category: <strong>${result.category_name}</strong> | 
+                        Images: <strong>${result.image_count}</strong>
+                    </p>
+                    
+                    ${result.images.length > 0 ? `
+                        <table style="width: 100%; background: white; border-radius: 4px;">
+                            <thead>
+                                <tr>
+                                    <th style="padding: 0.5rem; text-align: left;">Image Label</th>
+                                    <th style="padding: 0.5rem; text-align: left;">Image Code</th>
+                                    <th style="padding: 0.5rem; text-align: left;">Image URL</th>
+                                    <th style="padding: 0.5rem; text-align: left;">Copy</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    ` : ''}
+                    
+                    ${result.images.map(function(image) {
+                        return `
+                            <tr>
+                                <td style="padding: 0.5rem;">${image.image_label}</td>
+                                <td style="padding: 0.5rem; font-family: monospace; font-size: 0.875rem;">${image.image_code}</td>
+                                <td style="padding: 0.5rem;">
+                                    <input type="text" 
+                                           value="${image.image_url}" 
+                                           readonly 
+                                           class="form-control" 
+                                           style="font-size: 0.875rem; font-family: monospace; cursor: pointer;"
+                                           onclick="this.select();">
+                                </td>
+                                <td style="padding: 0.5rem;">
+                                    <button class="btn" 
+                                            onclick="copyToClipboard('${image.image_url}', this)"
+                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                        📋 Copy
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                    
+                    ${result.images.length > 0 ? `
+                            </tbody>
+                        </table>
+                    ` : '<p style="color: #666;">No images found for this product.</p>'}
+                </div>
+            `;
+        });
+        
+        resultsContent.innerHTML = html;
+    }
+    
+    function copyToClipboard(text, button) {
+        navigator.clipboard.writeText(text).then(function() {
+            const originalText = button.innerHTML;
+            button.innerHTML = '✓ Copied!';
+            button.style.backgroundColor = '#27ae60';
+            setTimeout(function() {
+                button.innerHTML = originalText;
+                button.style.backgroundColor = '#3498db';
+            }, 2000);
+        }).catch(function(err) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                const originalText = button.innerHTML;
+                button.innerHTML = '✓ Copied!';
+                button.style.backgroundColor = '#27ae60';
+                setTimeout(function() {
+                    button.innerHTML = originalText;
+                    button.style.backgroundColor = '#3498db';
+                }, 2000);
+            } catch (err) {
+                alert('Failed to copy: ' + err);
+            }
+            document.body.removeChild(textarea);
+        });
+    }
+</script>
+{% endblock %}
+

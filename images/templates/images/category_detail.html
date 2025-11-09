@@ -1,0 +1,50 @@
+{% extends 'images/base.html' %}
+
+{% block title %}{{ category.name }} - Image Host{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <a href="{% url 'store_detail' store.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Store</a>
+    <h2>{{ store.name }} → {{ category.name }}</h2>
+</div>
+
+<!-- Products -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">Products</h3>
+        <a href="{% url 'product_create' category.id %}" class="btn btn-success">Create Product</a>
+    </div>
+    
+    {% if products %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Images</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'product_detail' product.id %}" style="color: #3498db; text-decoration: none; font-weight: 500;">
+                                {{ product.name }}
+                            </a>
+                        </td>
+                        <td>{{ product.images.count }} image(s)</td>
+                        <td>
+                            <a href="{% url 'product_detail' product.id %}" class="btn">Manage</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="text-align: center; color: #666; padding: 2rem;">
+            No products yet. <a href="{% url 'product_create' category.id %}">Create your first product</a> to start uploading images!
+        </p>
+    {% endif %}
+</div>
+{% endblock %}
+
