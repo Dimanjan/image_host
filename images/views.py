@@ -423,39 +423,39 @@ def api_search_product(request):
             used_fuzzy = True
             # Get all products in this store for fuzzy matching
             all_products = StoreProduct.objects(store.id).all()
-        
-        if all_products:
-            # Create a list of product names with their IDs
-            product_list = [(p.id, p.name) for p in all_products]
             
-            # Use rapidfuzz to find best matches (score >= 60 for fuzzy matching)
-            # Extract top 10 matches
-            matches = process.extract(
-                product_name,
-                [p[1] for p in product_list],
-                limit=10,
-                scorer=fuzz.partial_ratio,
-                score_cutoff=60  # Minimum similarity score (0-100)
-            )
-            
-            if matches:
-                # Get product IDs from matches
-                matched_names = [match[0] for match in matches]
-                product_ids = [p[0] for p in product_list if p[1] in matched_names]
-                products = [p for p in all_products if p.id in product_ids]
+            if all_products:
+                # Create a list of product names with their IDs
+                product_list = [(p.id, p.name) for p in all_products]
+                
+                # Use rapidfuzz to find best matches (score >= 60 for fuzzy matching)
+                # Extract top 10 matches
+                matches = process.extract(
+                    product_name,
+                    [p[1] for p in product_list],
+                    limit=10,
+                    scorer=fuzz.partial_ratio,
+                    score_cutoff=60  # Minimum similarity score (0-100)
+                )
+                
+                if matches:
+                    # Get product IDs from matches
+                    matched_names = [match[0] for match in matches]
+                    product_ids = [p[0] for p in product_list if p[1] in matched_names]
+                    products = [p for p in all_products if p.id in product_ids]
+                else:
+                    # No fuzzy matches found
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'No products found matching "{product_name}" in store "{store.name}" (fuzzy search threshold: 60%)',
+                        'results': []
+                    })
             else:
-                # No fuzzy matches found
                 return JsonResponse({
                     'success': False,
-                    'message': f'No products found matching "{product_name}" in store "{store.name}" (fuzzy search threshold: 60%)',
+                    'message': f'No products found matching "{product_name}" in store "{store.name}"',
                     'results': []
                 })
-        else:
-            return JsonResponse({
-                'success': False,
-                'message': f'No products found matching "{product_name}" in store "{store.name}"',
-                'results': []
-            })
     
         # Calculate similarity scores for ranking
         product_scores = []
