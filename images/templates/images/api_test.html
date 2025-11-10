@@ -13,6 +13,20 @@
         <form id="searchForm" style="margin-bottom: 2rem;">
             {% csrf_token %}
             <div class="form-group">
+                <label for="storeSelect">Store (Required)</label>
+                <select id="storeSelect" 
+                        name="store_id" 
+                        class="form-control" 
+                        required
+                        style="margin-bottom: 1rem;">
+                    <option value="">-- Select a Store --</option>
+                    {% for store in stores %}
+                        <option value="{{ store.id }}">{{ store.name }}</option>
+                    {% endfor %}
+                </select>
+                <small style="color: #666; font-size: 0.875rem;">Search will only look within the selected store</small>
+            </div>
+            <div class="form-group">
                 <label for="productName">Product Name</label>
                 <input type="text" 
                        id="productName" 
@@ -51,21 +65,29 @@
         <h3 style="margin-bottom: 1rem;">API Documentation</h3>
         <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.875rem;">
             <p><strong>Endpoint:</strong> POST /api/search-product/</p>
-            <p><strong>Parameter:</strong> product_name (string)</p>
+            <p><strong>Parameters:</strong></p>
+            <ul style="margin-left: 1.5rem;">
+                <li><code>store_id</code> (integer, required) - ID of the store to search within</li>
+                <li><code>store_name</code> (string, optional) - Name of the store (alternative to store_id)</li>
+                <li><code>product_name</code> (string, required) - Product name to search for</li>
+            </ul>
             <p><strong>Response Format:</strong> JSON</p>
+            <p style="color: #e74c3c; margin-top: 0.5rem;"><strong>Note:</strong> Search is scoped to a specific store. Products from other stores will not be returned.</p>
             <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem; margin-bottom: 1rem;">
                 <h4 style="margin-bottom: 0.5rem; color: #2c3e50;">Search Algorithm:</h4>
                 <p style="margin: 0.5rem 0; color: #333;">
-                    The search uses a <strong>two-tier approach</strong>:
+                    The search uses a <strong>two-tier approach</strong> and is <strong>scoped to a specific store</strong>:
                 </p>
                 <ol style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
-                    <li><strong>Exact/Partial Match:</strong> First tries case-insensitive partial matching (Django's <code>icontains</code>)</li>
-                    <li><strong>Fuzzy Search:</strong> If no exact matches, uses fuzzy matching to find similar product names even with typos</li>
+                    <li><strong>Store Filtering:</strong> First filters products to only those within the selected store</li>
+                    <li><strong>Exact/Partial Match:</strong> Then tries case-insensitive partial matching (Django's <code>icontains</code>) within that store</li>
+                    <li><strong>Fuzzy Search:</strong> If no exact matches, uses fuzzy matching to find similar product names even with typos (still within the same store)</li>
                 </ol>
                 <ul style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
+                    <li><strong>Store-scoped:</strong> Only searches within the selected store - products from other stores are never returned</li>
                     <li><strong>Case-insensitive:</strong> "power", "Power", "POWER" all match the same</li>
-                    <li><strong>Partial match:</strong> Searching "power" will find "Power Bank", "Power Supply", etc.</li>
-                    <li><strong>Fuzzy matching:</strong> Handles typos - "powr bank" will still find "Power Bank"</li>
+                    <li><strong>Partial match:</strong> Searching "power" will find "Power Bank", "Power Supply", etc. (within the store)</li>
+                    <li><strong>Fuzzy matching:</strong> Handles typos - "powr bank" will still find "Power Bank" (within the store)</li>
                     <li><strong>Similarity scoring:</strong> Results are ranked by similarity score (0-100%)</li>
                     <li><strong>Minimum threshold:</strong> Fuzzy matches require at least 60% similarity</li>
                 </ul>
@@ -73,21 +95,25 @@
                     <strong>Examples:</strong>
                 </p>
                 <ul style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
-                    <li>"bank" → finds "Power Bank", "Bank Charger" (exact match)</li>
-                    <li>"powr bank" → finds "Power Bank" (fuzzy match, handles typo)</li>
-                    <li>"yosnda" → finds "Yosonda" products (fuzzy match)</li>
+                    <li>Store: "My Store", Search: "bank" → finds "Power Bank", "Bank Charger" in "My Store" only</li>
+                    <li>Store: "My Store", Search: "powr bank" → finds "Power Bank" in "My Store" (fuzzy match, handles typo)</li>
+                    <li>Store: "My Store", Search: "yosnda" → finds "Yosonda" products in "My Store" only (fuzzy match)</li>
                 </ul>
             </div>
             <pre style="background: white; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 1rem;">{
   "success": true,
   "query": "product name",
+  "store_id": 1,
+  "store_name": "Store Name",
   "count": 1,
+  "search_type": "exact",
   "results": [
     {
       "store_name": "Store Name",
       "category_name": "Category Name",
       "product_name": "Product Name",
       "image_count": 2,
+      "similarity_score": 100,
       "images": [
         {
           "image_label": "Image Label",
@@ -109,11 +135,18 @@
     document.getElementById('searchForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
+        const storeId = document.getElementById('storeSelect').value;
         const productName = document.getElementById('productName').value.trim();
         const loading = document.getElementById('loading');
         const results = document.getElementById('results');
         const resultsContent = document.getElementById('resultsContent');
         const error = document.getElementById('error');
+        
+        if (!storeId) {
+            error.textContent = 'Please select a store';
+            error.style.display = 'block';
+            return;
+        }
         
         // Hide previous results
         results.style.display = 'none';
@@ -124,6 +157,7 @@
         // Make API call
         const formData = new FormData();
         formData.append('product_name', productName);
+        formData.append('store_id', storeId);
         
         // Add CSRF token if it exists
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');

@@ -71,6 +71,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            # Disable SQL query logging to avoid conflicts with our SQL formatting
+            'timeout': 20,
+        },
     }
 }
 
@@ -125,4 +129,28 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'store_list'
 LOGOUT_REDIRECT_URL = 'login'
+
+# Disable SQL query logging to avoid conflicts with our SQL formatting
+# This prevents Django from trying to format SQL strings with % operator
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'null': {
+            'class': 'logging.NullHandler',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['null'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.db.backends.schema': {
+            'handlers': ['null'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
 

@@ -12,7 +12,7 @@
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3 style="margin: 0;">Products</h3>
-        <a href="{% url 'product_create' category.id %}" class="btn btn-success">Create Product</a>
+        <a href="{% url 'product_create' store.id category.id %}" class="btn btn-success">Create Product</a>
     </div>
     
     {% if products %}
@@ -28,13 +28,17 @@
                 {% for product in products %}
                     <tr>
                         <td>
-                            <a href="{% url 'product_detail' product.id %}" style="color: #3498db; text-decoration: none; font-weight: 500;">
+                            <a href="{% url 'product_detail' store.id product.id %}" style="color: #3498db; text-decoration: none; font-weight: 500;">
                                 {{ product.name }}
                             </a>
                         </td>
-                        <td>{{ product.images.count }} image(s)</td>
                         <td>
-                            <a href="{% url 'product_detail' product.id %}" class="btn">Manage</a>
+                            {% with images=product.images %}
+                                {{ images|length }} image(s)
+                            {% endwith %}
+                        </td>
+                        <td>
+                            <a href="{% url 'product_detail' store.id product.id %}" class="btn">Manage</a>
                         </td>
                     </tr>
                 {% endfor %}
@@ -42,7 +46,7 @@
         </table>
     {% else %}
         <p style="text-align: center; color: #666; padding: 2rem;">
-            No products yet. <a href="{% url 'product_create' category.id %}">Create your first product</a> to start uploading images!
+            No products yet. <a href="{% url 'product_create' store.id category.id %}">Create your first product</a> to start uploading images!
         </p>
     {% endif %}
 </div>

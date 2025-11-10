@@ -7,6 +7,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.urls import reverse
+from django.conf import settings
 from .models import Store, Category, Product, Image
 from .forms import StoreForm, CategoryForm, ProductForm, ImageUploadForm
 import json
@@ -56,14 +57,22 @@ def store_list(request):
 
 @login_required
 def store_create(request):
-    """Create a new store"""
+    """Create a new store and its associated tables"""
     if request.method == 'POST':
         form = StoreForm(request.POST)
         if form.is_valid():
             store = form.save(commit=False)
             store.user = request.user
             store.save()
-            messages.success(request, f'Store "{store.name}" created successfully!')
+            
+            # Create store-specific tables
+            from .store_tables import create_store_tables
+            try:
+                create_store_tables(store.id)
+                messages.success(request, f'Store "{store.name}" created successfully with its own tables!')
+            except Exception as e:
+                messages.error(request, f'Store created but table creation failed: {str(e)}')
+            
             return redirect('store_detail', store_id=store.id)
     else:
         form = StoreForm()
@@ -74,17 +83,30 @@ def store_create(request):
 def store_detail(request, store_id):
     """View store details with categories and all images"""
     from django.utils.text import slugify
+    from .store_helpers import StoreCategory, StoreProduct, StoreImage
     
     store = get_object_or_404(Store, id=store_id, user=request.user)
-    categories = store.categories.all()
+    
+    # Get categories from store-specific table
+    categories = StoreCategory.objects(store_id).all()
+    
+    # Create a dictionary of category_id -> product count for template
+    category_product_counts = {}
+    for category in categories:
+        category_products = StoreProduct.objects(store_id).filter(category_id=category.id)
+        category_product_counts[category.id] = len(category_products)
     
     # Collect all images organized by category and product
     images_by_category = []
     for category in categories:
+        # Get products for this category
+        products = StoreProduct.objects(store_id).filter(category_id=category.id)
         products_data = []
-        for product in category.products.all():
+        for product in products:
+            # Get images for this product
+            images = StoreImage.objects(store_id).filter(product_id=product.id)
             images_data = []
-            for image in product.images.all():
+            for image in images:
                 image_url = request.build_absolute_uri(reverse('image_view', kwargs={
                     'store_name': slugify(store.name),
                     'category_name': slugify(category.name),
@@ -111,6 +133,7 @@ def store_detail(request, store_id):
     return render(request, 'images/store_detail.html', {
         'store': store,
         'categories': categories,
+        'category_product_counts': category_product_counts,
         'images_by_category': images_by_category,
     })
 
@@ -118,13 +141,15 @@ def store_detail(request, store_id):
 @login_required
 def category_create(request, store_id):
     """Create a new category"""
+    from .store_helpers import StoreCategory
+    
     store = get_object_or_404(Store, id=store_id, user=request.user)
     if request.method == 'POST':
         form = CategoryForm(request.POST)
         if form.is_valid():
-            category = form.save(commit=False)
-            category.store = store
-            category.save()
+            category = StoreCategory.objects(store_id).create(
+                name=form.cleaned_data['name']
+            )
             messages.success(request, f'Category "{category.name}" created successfully!')
             return redirect('store_detail', store_id=store.id)
     else:
@@ -137,43 +162,56 @@ def category_create(request, store_id):
 
 
 @login_required
-def category_detail(request, category_id):
+def category_detail(request, store_id, category_id):
     """View category details with products"""
-    category = get_object_or_404(Category, id=category_id, store__user=request.user)
-    products = category.products.all()
+    from .store_helpers import StoreCategory, StoreProduct
+    
+    store = get_object_or_404(Store, id=store_id, user=request.user)
+    category = StoreCategory.objects(store_id).get(id=category_id)
+    products = StoreProduct.objects(store_id).filter(category_id=category_id)
     return render(request, 'images/category_detail.html', {
         'category': category,
-        'store': category.store,
+        'store': store,
         'products': products,
     })
 
 
 @login_required
-def product_create(request, category_id):
+def product_create(request, store_id, category_id):
     """Create a new product"""
-    category = get_object_or_404(Category, id=category_id, store__user=request.user)
+    from .store_helpers import StoreCategory, StoreProduct
+    
+    store = get_object_or_404(Store, id=store_id, user=request.user)
+    category = StoreCategory.objects(store_id).get(id=category_id)
+    
     if request.method == 'POST':
         form = ProductForm(request.POST)
         if form.is_valid():
-            product = form.save(commit=False)
-            product.category = category
-            product.save()
+            product = StoreProduct.objects(store_id).create(
+                category=category,
+                name=form.cleaned_data['name']
+            )
             messages.success(request, f'Product "{product.name}" created successfully!')
-            return redirect('product_detail', product_id=product.id)
+            return redirect('product_detail', store_id=store_id, product_id=product.id)
     else:
         form = ProductForm()
     return render(request, 'images/product_form.html', {
         'form': form,
         'category': category,
+        'store': store,
         'action': 'Create'
     })
 
 
 @login_required
-def product_detail(request, product_id):
+def product_detail(request, store_id, product_id):
     """View product details and upload images"""
-    product = get_object_or_404(Product, id=product_id, category__store__user=request.user)
-    images = product.images.all()
+    from .store_helpers import StoreProduct, StoreImage, StoreCategory
+    
+    store = get_object_or_404(Store, id=store_id, user=request.user)
+    product = StoreProduct.objects(store_id).get(id=product_id)
+    category = product.category
+    images = StoreImage.objects(store_id).filter(product_id=product_id)
     
     if request.method == 'POST':
         # Check if it's a multiple upload
@@ -203,28 +241,30 @@ def product_detail(request, product_id):
                     if code:
                         image_code = code
                 
-                # Create image instance
-                image = Image(
+                # Create image instance using store-specific helper
+                image = StoreImage.objects(store_id).create(
                     product=product,
                     name=label,
                     image_file=file,
                     image_code=image_code  # Will be auto-generated if empty
                 )
-                image.save()
                 uploaded_count += 1
             
             if uploaded_count > 0:
                 messages.success(request, f'Successfully uploaded {uploaded_count} image(s)!')
-            return redirect('product_detail', product_id=product.id)
+            return redirect('product_detail', store_id=store_id, product_id=product.id)
         else:
             # Handle single image upload (legacy support)
             form = ImageUploadForm(request.POST, request.FILES)
             if form.is_valid():
-                image = form.save(commit=False)
-                image.product = product
-                image.save()
+                image = StoreImage.objects(store_id).create(
+                    product=product,
+                    name=form.cleaned_data['name'],
+                    image_file=form.cleaned_data['image_file'],
+                    image_code=form.cleaned_data.get('image_code', '')
+                )
                 messages.success(request, f'Image "{image.name}" uploaded successfully!')
-                return redirect('product_detail', product_id=product.id)
+                return redirect('product_detail', store_id=store_id, product_id=product.id)
     else:
         form = ImageUploadForm()
     
@@ -233,8 +273,8 @@ def product_detail(request, product_id):
     image_data = []
     for image in images:
         image_url = request.build_absolute_uri(reverse('image_view', kwargs={
-            'store_name': slugify(product.category.store.name),
-            'category_name': slugify(product.category.name),
+            'store_name': slugify(store.name),
+            'category_name': slugify(category.name),
             'product_name': slugify(product.name),
             'image_code': image.image_code
         }))
@@ -247,8 +287,8 @@ def product_detail(request, product_id):
     
     return render(request, 'images/product_detail.html', {
         'product': product,
-        'category': product.category,
-        'store': product.category.store,
+        'category': category,
+        'store': store,
         'images': images,
         'image_data': image_data,
         'form': form,
@@ -257,9 +297,14 @@ def product_detail(request, product_id):
 
 @login_required
 @require_http_methods(["POST"])
-def image_update(request, image_id):
+def image_update(request, store_id, image_id):
     """Update image name and code"""
-    image = get_object_or_404(Image, id=image_id, product__category__store__user=request.user)
+    from .store_helpers import StoreImage
+    
+    store = get_object_or_404(Store, id=store_id, user=request.user)
+    image = StoreImage.objects(store_id).get(id=image_id)
+    product = image.product
+    category = product.category
     
     data = json.loads(request.body)
     image.name = data.get('name', image.name).strip()
@@ -290,9 +335,9 @@ def image_update(request, image_id):
                 'name': image.name,
                 'image_code': image.image_code,
                 'url': request.build_absolute_uri(reverse('image_view', kwargs={
-                    'store_name': slugify(image.product.category.store.name),
-                    'category_name': slugify(image.product.category.name),
-                    'product_name': slugify(image.product.name),
+                    'store_name': slugify(store.name),
+                    'category_name': slugify(category.name),
+                    'product_name': slugify(product.name),
                     'image_code': image.image_code
                 })),
             }
@@ -302,38 +347,84 @@ def image_update(request, image_id):
 
 
 @login_required
-def image_delete(request, image_id):
+def image_delete(request, store_id, image_id):
     """Delete an image"""
-    image = get_object_or_404(Image, id=image_id, product__category__store__user=request.user)
-    product_id = image.product.id
+    from .store_helpers import StoreImage
+    
+    store = get_object_or_404(Store, id=store_id, user=request.user)
+    image = StoreImage.objects(store_id).get(id=image_id)
+    product_id = image.product_id
     image.delete()
     messages.success(request, 'Image deleted successfully!')
-    return redirect('product_detail', product_id=product_id)
+    return redirect('product_detail', store_id=store_id, product_id=product_id)
 
 
 @csrf_exempt
 def api_search_product(request):
-    """API endpoint to search for products by name and return image URLs with fuzzy search"""
+    """API endpoint to search for products by name and return image URLs with fuzzy search (store-scoped)"""
     from django.utils.text import slugify
     from rapidfuzz import fuzz, process
+    from django.db import connection
     
-    # Accept both GET and POST requests
-    product_name = request.POST.get('product_name') or request.GET.get('product_name')
-    
-    if not product_name:
-        return JsonResponse({'error': 'product_name parameter is required'}, status=400)
-    
-    # First try exact/partial match (case-insensitive)
-    products = Product.objects.filter(name__icontains=product_name)
-    used_fuzzy = False
-    
-    # If no exact matches, try fuzzy search
-    if not products.exists():
-        used_fuzzy = True
-        # Get all products for fuzzy matching
-        all_products = Product.objects.all()
+    try:
+        # Accept both GET and POST requests
+        product_name = request.POST.get('product_name') or request.GET.get('product_name')
+        store_id = request.POST.get('store_id') or request.GET.get('store_id')
+        store_name = request.POST.get('store_name') or request.GET.get('store_name')
         
-        if all_products.exists():
+        if not product_name:
+            return JsonResponse({'error': 'product_name parameter is required'}, status=400)
+        
+        # Get store - required for scoping search
+        store = None
+        if store_id:
+            try:
+                store = Store.objects.get(id=store_id)
+            except Store.DoesNotExist:
+                return JsonResponse({'error': f'Store with ID {store_id} not found'}, status=404)
+        elif store_name:
+            try:
+                store = Store.objects.get(name__iexact=store_name)
+            except Store.DoesNotExist:
+                return JsonResponse({'error': f'Store "{store_name}" not found'}, status=404)
+            except Store.MultipleObjectsReturned:
+                return JsonResponse({'error': f'Multiple stores found with name "{store_name}". Please use store_id instead.'}, status=400)
+        else:
+            return JsonResponse({'error': 'store_id or store_name parameter is required'}, status=400)
+        
+        # Check if store tables exist, create them if they don't
+        table_name = f'store_{store.id}_categories'
+        with connection.cursor() as cursor:
+            # Use string formatting to avoid Django debug SQL logging issues
+            sql = "SELECT name FROM sqlite_master WHERE type='table' AND name = '{}'".format(table_name)
+            cursor.execute(sql)
+            if not cursor.fetchone():
+                # Tables don't exist, create them
+                from .store_tables import create_store_tables
+                try:
+                    create_store_tables(store.id)
+                except Exception as e:
+                    return JsonResponse({'error': f'Store tables not initialized. Please contact administrator. Error: {str(e)}'}, status=500)
+        
+        # Import store-specific helpers
+        from .store_helpers import StoreProduct, StoreImage, StoreCategory
+    
+        # Filter products by store first
+        # First try exact/partial match (case-insensitive) within the store
+        try:
+            products = StoreProduct.objects(store.id).filter(name__icontains=product_name)
+        except Exception as e:
+            return JsonResponse({'error': f'Error querying products: {str(e)}'}, status=500)
+        
+        used_fuzzy = False
+        
+        # If no exact matches, try fuzzy search within the store
+        if not products:
+            used_fuzzy = True
+            # Get all products in this store for fuzzy matching
+            all_products = StoreProduct.objects(store.id).all()
+        
+        if all_products:
             # Create a list of product names with their IDs
             product_list = [(p.id, p.name) for p in all_products]
             
@@ -351,88 +442,127 @@ def api_search_product(request):
                 # Get product IDs from matches
                 matched_names = [match[0] for match in matches]
                 product_ids = [p[0] for p in product_list if p[1] in matched_names]
-                products = Product.objects.filter(id__in=product_ids)
+                products = [p for p in all_products if p.id in product_ids]
             else:
                 # No fuzzy matches found
                 return JsonResponse({
                     'success': False,
-                    'message': f'No products found matching "{product_name}" (fuzzy search threshold: 60%)',
+                    'message': f'No products found matching "{product_name}" in store "{store.name}" (fuzzy search threshold: 60%)',
                     'results': []
                 })
         else:
             return JsonResponse({
                 'success': False,
-                'message': f'No products found matching "{product_name}"',
+                'message': f'No products found matching "{product_name}" in store "{store.name}"',
                 'results': []
             })
     
-    # Calculate similarity scores for ranking
-    product_scores = []
-    for product in products:
-        # Calculate similarity score
-        score = fuzz.partial_ratio(product_name.lower(), product.name.lower())
-        product_scores.append((product, score))
-    
-    # Sort by score (highest first)
-    product_scores.sort(key=lambda x: x[1], reverse=True)
-    
-    results = []
-    for product, similarity_score in product_scores:
-        images_data = []
-        for image in product.images.all():
-            image_url = request.build_absolute_uri(reverse('image_view', kwargs={
-                'store_name': slugify(product.category.store.name),
-                'category_name': slugify(product.category.name),
-                'product_name': slugify(product.name),
-                'image_code': image.image_code
-            }))
-            images_data.append({
-                'image_label': image.name,
-                'image_code': image.image_code,
-                'image_url': image_url,
-            })
+        # Calculate similarity scores for ranking
+        product_scores = []
+        for product in products:
+            # Calculate similarity score
+            score = fuzz.partial_ratio(product_name.lower(), product.name.lower())
+            product_scores.append((product, score))
         
-        results.append({
-            'store_name': product.category.store.name,
-            'category_name': product.category.name,
-            'product_name': product.name,
-            'images': images_data,
-            'image_count': len(images_data),
-            'similarity_score': similarity_score  # Add similarity score to results
+        # Sort by score (highest first)
+        product_scores.sort(key=lambda x: x[1], reverse=True)
+        
+        results = []
+        for product, similarity_score in product_scores:
+            try:
+                category = product.category
+                images = StoreImage.objects(store.id).filter(product_id=product.id)
+                images_data = []
+                for image in images:
+                    image_url = request.build_absolute_uri(reverse('image_view', kwargs={
+                        'store_name': slugify(store.name),
+                        'category_name': slugify(category.name),
+                        'product_name': slugify(product.name),
+                        'image_code': image.image_code
+                    }))
+                    images_data.append({
+                        'image_label': image.name,
+                        'image_code': image.image_code,
+                        'image_url': image_url,
+                    })
+                
+                results.append({
+                    'store_name': store.name,
+                    'category_name': category.name,
+                    'product_name': product.name,
+                    'images': images_data,
+                    'image_count': len(images_data),
+                    'similarity_score': similarity_score  # Add similarity score to results
+                })
+            except Exception as e:
+                # Skip products with errors, but log them
+                continue
+        
+        return JsonResponse({
+            'success': True,
+            'query': product_name,
+            'store_id': store.id,
+            'store_name': store.name,
+            'count': len(results),
+            'search_type': 'fuzzy' if used_fuzzy else 'exact',
+            'results': results
         })
-    
-    return JsonResponse({
-        'success': True,
-        'query': product_name,
-        'count': len(results),
-        'search_type': 'fuzzy' if used_fuzzy else 'exact',
-        'results': results
-    })
+    except Exception as e:
+        # Catch any unexpected errors and return JSON
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': f'An error occurred: {str(e)}',
+            'details': str(traceback.format_exc()) if settings.DEBUG else None
+        }, status=500)
 
 
+@login_required
 def api_test_page(request):
     """Frontend test page for API"""
-    return render(request, 'images/api_test.html')
+    stores = Store.objects.filter(user=request.user)
+    return render(request, 'images/api_test.html', {'stores': stores})
 
 
 def image_view(request, store_name, category_name, product_name, image_code):
     """Public view for accessing images by code"""
-    from django.http import FileResponse
+    from django.http import FileResponse, Http404
     import mimetypes
     from django.utils.text import slugify
+    from .store_helpers import StoreImage, StoreProduct, StoreCategory
     
-    # Find image by code first
-    image = get_object_or_404(Image, image_code=image_code)
+    # Find store by name (slugified)
+    store = Store.objects.filter(name__iexact=store_name.replace('-', ' ')).first()
+    if not store:
+        # Try exact match
+        store = Store.objects.filter(name=store_name.replace('-', ' ')).first()
+    if not store:
+        raise Http404("Store not found")
+    
+    # Find image by code in store-specific table
+    images = StoreImage.objects(store.id).filter(image_code=image_code)
+    if not images:
+        raise Http404("Image not found")
+    image = images[0]
+    
+    product = image.product
+    category = product.category
     
     # Verify the URL path matches the image's store/category/product (case-insensitive, slugified comparison)
-    if (slugify(image.product.category.store.name) != slugify(store_name) or
-        slugify(image.product.category.name) != slugify(category_name) or
-        slugify(image.product.name) != slugify(product_name)):
-        from django.http import Http404
+    if (slugify(store.name) != slugify(store_name) or
+        slugify(category.name) != slugify(category_name) or
+        slugify(product.name) != slugify(product_name)):
         raise Http404("Image not found")
     
-    content_type, _ = mimetypes.guess_type(image.image_file.name)
-    if not content_type:
-        content_type = 'image/jpeg'
-    return FileResponse(image.image_file.open('rb'), content_type=content_type)
+    # Get file path and serve it
+    from django.core.files.storage import default_storage
+    file_path = image.image_file
+    if default_storage.exists(file_path):
+        file = default_storage.open(file_path, 'rb')
+        content_type, _ = mimetypes.guess_type(file_path)
+        if not content_type:
+            content_type = 'image/jpeg'
+        return FileResponse(file, content_type=content_type)
+    else:
+        raise Http404("Image file not found")
 

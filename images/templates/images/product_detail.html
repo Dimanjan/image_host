@@ -4,7 +4,7 @@
 
 {% block content %}
 <div style="margin-bottom: 2rem;">
-    <a href="{% url 'category_detail' category.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Category</a>
+    <a href="{% url 'category_detail' store.id category.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Category</a>
     <h2>{{ store.name }} → {{ category.name }} → {{ product.name }}</h2>
 </div>
 
@@ -56,7 +56,11 @@
                 {% for image in images %}
                     <tr data-image-id="{{ image.id }}">
                         <td>
-                            <img src="{{ image.image_file.url }}" alt="{{ image.name }}" class="image-preview">
+                            {% for img_data in image_data %}
+                                {% if img_data.id == image.id %}
+                                    <img src="{{ img_data.url }}" alt="{{ image.name }}" class="image-preview" style="max-width: 150px; max-height: 150px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; padding: 4px; background: white;">
+                                {% endif %}
+                            {% endfor %}
                         </td>
                         <td>
                             <span class="editable" contenteditable="true" data-field="name" data-image-id="{{ image.id }}">
@@ -82,7 +86,7 @@
                         </td>
                         <td>
                             <button class="btn btn-success save-btn" data-image-id="{{ image.id }}" style="display: none;">Save</button>
-                            <a href="{% url 'image_delete' image.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this image?');">Delete</a>
+                            <a href="{% url 'image_delete' store.id image.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this image?');">Delete</a>
                         </td>
                     </tr>
                 {% endfor %}
@@ -198,6 +202,7 @@
     // Handle editable fields
     const editableFields = document.querySelectorAll('.editable');
     const saveButtons = document.querySelectorAll('.save-btn');
+    const storeId = {{ store.id }};
     
     editableFields.forEach(field => {
         field.addEventListener('input', function() {
@@ -222,7 +227,7 @@
                 image_code: codeField.textContent.trim()
             };
 
-            fetch(`/images/${imageId}/update/`, {
+            fetch(`/stores/${storeId}/images/${imageId}/update/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
