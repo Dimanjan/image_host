@@ -123,6 +123,9 @@ class StoreProduct:
             self.id = data.get('id')
             self.category_id = data.get('category_id')
             self.name = data.get('name')
+            self.marked_price = data.get('marked_price')
+            self.min_discounted_price = data.get('min_discounted_price')
+            self.description = data.get('description')
             self.created_at = data.get('created_at')
             self.updated_at = data.get('updated_at')
             self._category = None
@@ -130,6 +133,9 @@ class StoreProduct:
             self.id = None
             self.category_id = None
             self.name = None
+            self.marked_price = None
+            self.min_discounted_price = None
+            self.description = None
             self.created_at = None
             self.updated_at = None
             self._category = None
@@ -161,12 +167,12 @@ class StoreProduct:
         with connection.cursor() as cursor:
             if self.id:
                 # Update
-                sql = "UPDATE {} SET category_id = ?, name = ?, updated_at = ? WHERE id = ?".format(self.table_name)
-                cursor.execute(sql, [self.category_id, self.name, now, self.id])
+                sql = "UPDATE {} SET category_id = ?, name = ?, marked_price = ?, min_discounted_price = ?, description = ?, updated_at = ? WHERE id = ?".format(self.table_name)
+                cursor.execute(sql, [self.category_id, self.name, self.marked_price, self.min_discounted_price, self.description, now, self.id])
             else:
                 # Create
-                sql = "INSERT INTO {} (category_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)".format(self.table_name)
-                cursor.execute(sql, [self.category_id, self.name, now, now])
+                sql = "INSERT INTO {} (category_id, name, marked_price, min_discounted_price, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)".format(self.table_name)
+                cursor.execute(sql, [self.category_id, self.name, self.marked_price, self.min_discounted_price, self.description, now, now])
                 self.id = cursor.lastrowid
                 self.created_at = now
             self.updated_at = now

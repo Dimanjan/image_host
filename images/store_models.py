@@ -74,6 +74,10 @@ def get_store_product_model(store_id, category_model):
         'id': models.BigAutoField(primary_key=True),
         'category': models.ForeignKey(category_model, on_delete=models.CASCADE, related_name='products'),
         'name': models.CharField(max_length=200),
+        # Added missing fields to match database schema
+        'marked_price': models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True),
+        'min_discounted_price': models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True),
+        'description': models.TextField(blank=True, null=True),
         'created_at': models.DateTimeField(auto_now_add=True),
         'updated_at': models.DateTimeField(auto_now=True),
         '__str__': lambda self: f"{self.category.name} - {self.name}",
@@ -158,4 +162,3 @@ def get_store_image_model(store_id, product_model):
     model = type(model_name, (models.Model,), attrs)
     apps.all_models['images'][model_name] = model
     return model
-

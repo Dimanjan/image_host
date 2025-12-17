@@ -4,11 +4,15 @@
 
 {% block content %}
 <div style="margin-bottom: 2rem;">
-    <a href="{% url 'store_detail' store.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Store</a>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <a href="{% url 'store_detail' store.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Store</a>
+        <div>
+            <a href="{% url 'category_update' store.id category.id %}" class="btn btn-primary" style="margin-bottom: 1rem;">Edit Category</a>
+        </div>
+    </div>
     <h2>{{ store.name }} → {{ category.name }}</h2>
 </div>
 
-<!-- Products -->
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3 style="margin: 0;">Products</h3>
@@ -20,6 +24,7 @@
             <thead>
                 <tr>
                     <th>Product Name</th>
+                    <th>Price</th>
                     <th>Images</th>
                     <th>Actions</th>
                 </tr>
@@ -31,6 +36,22 @@
                             <a href="{% url 'product_detail' store.id product.id %}" style="color: #3498db; text-decoration: none; font-weight: 500;">
                                 {{ product.name }}
                             </a>
+                        </td>
+                        <td>
+                            {% if product.marked_price or product.min_discounted_price %}
+                                {% if product.marked_price %}
+                                    <span style="color: #666; text-decoration: line-through; margin-right: 0.5rem;">
+                                        NPR {{ product.marked_price|floatformat:2 }}
+                                    </span>
+                                {% endif %}
+                                {% if product.min_discounted_price %}
+                                    <span style="color: #27ae60; font-weight: 600;">
+                                        NPR {{ product.min_discounted_price|floatformat:2 }}
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span style="color: #999;">-</span>
+                            {% endif %}
                         </td>
                         <td>
                             {% with images=product.images %}
@@ -51,4 +72,3 @@
     {% endif %}
 </div>
 {% endblock %}
-

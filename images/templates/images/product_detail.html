@@ -4,11 +4,40 @@
 
 {% block content %}
 <div style="margin-bottom: 2rem;">
-    <a href="{% url 'category_detail' store.id category.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Category</a>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <a href="{% url 'category_detail' store.id category.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Category</a>
+        <div>
+            <a href="{% url 'product_update' store.id product.id %}" class="btn btn-primary" style="margin-bottom: 1rem;">Edit Details</a>
+        </div>
+    </div>
     <h2>{{ store.name }} → {{ category.name }} → {{ product.name }}</h2>
+    {% if product.marked_price or product.min_discounted_price %}
+    <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; display: inline-block;">
+        {% if product.marked_price %}
+            <span style="font-size: 1.1rem; font-weight: 500; color: #666; text-decoration: line-through; margin-right: 1rem;">
+                NPR {{ product.marked_price|floatformat:2 }}
+            </span>
+        {% endif %}
+        {% if product.min_discounted_price %}
+            <span style="font-size: 1.3rem; font-weight: 600; color: #27ae60;">
+                NPR {{ product.min_discounted_price|floatformat:2 }}
+            </span>
+        {% endif %}
+        {% if discount_percent %}
+            <span style="color: #e74c3c; font-weight: 500; margin-left: 1rem;">
+                ({{ discount_percent }}% off)
+            </span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if product.description %}
+    <div style="margin-top: 1.5rem; padding: 1.5rem; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #3498db;">
+        <h3 style="margin-bottom: 0.75rem; font-size: 1.1rem; color: #2c3e50;">Product Details</h3>
+        <p style="color: #333; line-height: 1.6; white-space: pre-wrap;">{{ product.description }}</p>
+    </div>
+    {% endif %}
 </div>
 
-<!-- Upload Form -->
 <div class="card">
     <h3 style="margin-bottom: 1rem;">Upload Images</h3>
     <form method="post" enctype="multipart/form-data" id="uploadForm">
@@ -28,8 +57,7 @@
         <div id="imageLabelsContainer" style="margin-top: 1.5rem; display: none;">
             <h4 style="margin-bottom: 1rem; font-size: 1rem;">Labels and Previews:</h4>
             <div id="labelsList">
-                <!-- Each image will have label on left, preview on right -->
-            </div>
+                </div>
         </div>
         
         <button type="submit" class="btn btn-success" id="uploadBtn" style="margin-top: 1rem; display: none;">
@@ -38,7 +66,6 @@
     </form>
 </div>
 
-<!-- Images Display -->
 <div class="card">
     <h3 style="margin-bottom: 1rem;">Product Images</h3>
     {% if images %}
@@ -259,4 +286,3 @@
     });
 </script>
 {% endblock %}
-

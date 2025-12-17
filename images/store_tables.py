@@ -32,6 +32,9 @@ def create_store_tables(store_id):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 category_id INTEGER NOT NULL,
                 name VARCHAR(200) NOT NULL,
+                marked_price DECIMAL(10, 2),
+                min_discounted_price DECIMAL(10, 2),
+                description TEXT,
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL,
                 FOREIGN KEY (category_id) REFERENCES store_{store_id}_categories(id) ON DELETE CASCADE

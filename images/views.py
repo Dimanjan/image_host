@@ -162,6 +162,31 @@ def category_create(request, store_id):
 
 
 @login_required
+def category_update(request, store_id, category_id):
+    """Update an existing category"""
+    from .store_helpers import StoreCategory
+    
+    store = get_object_or_404(Store, id=store_id, user=request.user)
+    category = StoreCategory.objects(store_id).get(id=category_id)
+    
+    if request.method == 'POST':
+        form = CategoryForm(request.POST)
+        if form.is_valid():
+            category.name = form.cleaned_data['name']
+            category.save()
+            messages.success(request, f'Category "{category.name}" updated successfully!')
+            return redirect('category_detail', store_id=store_id, category_id=category.id)
+    else:
+        form = CategoryForm(initial={'name': category.name})
+        
+    return render(request, 'images/category_form.html', {
+        'form': form,
+        'store': store,
+        'action': 'Update'
+    })
+
+
+@login_required
 def category_detail(request, store_id, category_id):
     """View category details with products"""
     from .store_helpers import StoreCategory, StoreProduct
@@ -189,7 +214,10 @@ def product_create(request, store_id, category_id):
         if form.is_valid():
             product = StoreProduct.objects(store_id).create(
                 category=category,
-                name=form.cleaned_data['name']
+                name=form.cleaned_data['name'],
+                marked_price=form.cleaned_data.get('marked_price'),
+                min_discounted_price=form.cleaned_data.get('min_discounted_price'),
+                description=form.cleaned_data.get('description', '').strip()
             )
             messages.success(request, f'Product "{product.name}" created successfully!')
             return redirect('product_detail', store_id=store_id, product_id=product.id)
@@ -200,6 +228,42 @@ def product_create(request, store_id, category_id):
         'category': category,
         'store': store,
         'action': 'Create'
+    })
+
+
+@login_required
+def product_update(request, store_id, product_id):
+    """Update an existing product"""
+    from .store_helpers import StoreProduct, StoreCategory
+    
+    store = get_object_or_404(Store, id=store_id, user=request.user)
+    product = StoreProduct.objects(store_id).get(id=product_id)
+    category = product.category
+    
+    if request.method == 'POST':
+        form = ProductForm(request.POST)
+        if form.is_valid():
+            product.name = form.cleaned_data['name']
+            product.marked_price = form.cleaned_data.get('marked_price')
+            product.min_discounted_price = form.cleaned_data.get('min_discounted_price')
+            product.description = form.cleaned_data.get('description', '').strip()
+            product.save()
+            messages.success(request, f'Product "{product.name}" updated successfully!')
+            return redirect('product_detail', store_id=store_id, product_id=product.id)
+    else:
+        initial_data = {
+            'name': product.name,
+            'marked_price': product.marked_price,
+            'min_discounted_price': product.min_discounted_price,
+            'description': product.description
+        }
+        form = ProductForm(initial=initial_data)
+        
+    return render(request, 'images/product_form.html', {
+        'form': form,
+        'category': category,
+        'store': store,
+        'action': 'Update'
     })
 
 
@@ -285,6 +349,15 @@ def product_detail(request, store_id, product_id):
             'url': image_url,
         })
     
+    # Calculate discount percentage if both prices exist
+    discount_percent = None
+    if product.marked_price and product.min_discounted_price:
+        try:
+            discount = float(product.marked_price) - float(product.min_discounted_price)
+            discount_percent = round((discount / float(product.marked_price)) * 100, 0)
+        except (ValueError, ZeroDivisionError):
+            discount_percent = None
+    
     return render(request, 'images/product_detail.html', {
         'product': product,
         'category': category,
@@ -292,6 +365,7 @@ def product_detail(request, store_id, product_id):
         'images': images,
         'image_data': image_data,
         'form': form,
+        'discount_percent': discount_percent,
     })
 
 
@@ -486,14 +560,35 @@ def api_search_product(request):
                         'image_url': image_url,
                     })
                 
-                results.append({
+                result = {
                     'store_name': store.name,
                     'category_name': category.name,
                     'product_name': product.name,
                     'images': images_data,
                     'image_count': len(images_data),
                     'similarity_score': similarity_score  # Add similarity score to results
-                })
+                }
+                
+                # Add price information if available
+                if product.marked_price is not None:
+                    result['marked_price'] = float(product.marked_price)
+                if product.min_discounted_price is not None:
+                    result['min_discounted_price'] = float(product.min_discounted_price)
+                
+                # Calculate discount percentage if both prices exist
+                if product.marked_price and product.min_discounted_price:
+                    try:
+                        discount = float(product.marked_price) - float(product.min_discounted_price)
+                        discount_percent = round((discount / float(product.marked_price)) * 100, 0)
+                        result['discount_percent'] = discount_percent
+                    except (ValueError, ZeroDivisionError):
+                        pass
+                
+                # Add description if available
+                if product.description:
+                    result['description'] = product.description
+                
+                results.append(result)
             except Exception as e:
                 # Skip products with errors, but log them
                 continue
@@ -565,4 +660,3 @@ def image_view(request, store_name, category_name, product_name, image_code):
         return FileResponse(file, content_type=content_type)
     else:
         raise Http404("Image file not found")
-
