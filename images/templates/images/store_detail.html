@@ -6,10 +6,15 @@
 {% block content %}
 <div style="margin-bottom: 2rem;">
     <a href="{% url 'store_list' %}" class="btn" style="margin-bottom: 1rem;">← Back to Stores</a>
-    <h2>{{ store.name }}</h2>
+    
+    <div style="display: flex; align-items: center; gap: 1rem;">
+        {% if store.logo %}
+            <img src="{{ store.logo.url }}" alt="{{ store.name }} Logo" style="height: 60px; width: auto; max-width: 150px; object-fit: contain; border: 1px solid #eee; padding: 2px; border-radius: 4px;">
+        {% endif %}
+        <h2 style="margin: 0;">{{ store.name }}</h2>
+    </div>
 </div>
 
-<!-- Categories -->
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3 style="margin: 0;">Product Categories</h3>
@@ -48,7 +53,6 @@
     {% endif %}
 </div>
 
-<!-- All Image URLs -->
 {% if images_by_category %}
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">

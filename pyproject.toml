@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+^/venv/
+^/migrations/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+skip = ["venv", "migrations"]

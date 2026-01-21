@@ -13,6 +13,7 @@
         <table>
             <thead>
                 <tr>
+                    <th style="width: 80px;">Logo</th>
                     <th>Store Name</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -21,6 +22,15 @@
             <tbody>
                 {% for store in stores %}
                     <tr>
+                        <td>
+                            {% if store.logo %}
+                                <img src="{{ store.logo.url }}" alt="Logo" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px; border: 1px solid #eee;">
+                            {% else %}
+                                <div style="width: 40px; height: 40px; background: #eee; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 0.8rem;">
+                                    No
+                                </div>
+                            {% endif %}
+                        </td>
                         <td>
                             <a href="{% url 'store_detail' store.id %}" style="color: #3498db; text-decoration: none; font-weight: 500;">
                                 {{ store.name }}
@@ -43,4 +53,3 @@
     </div>
 {% endif %}
 {% endblock %}
-

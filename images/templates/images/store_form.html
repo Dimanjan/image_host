@@ -5,7 +5,7 @@
 {% block content %}
 <div class="card" style="max-width: 600px; margin: 2rem auto;">
     <h2 style="margin-bottom: 1.5rem;">{{ action }} Store</h2>
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="form-group">
             <label for="id_name">Store Name</label>
@@ -16,9 +16,24 @@
                 </div>
             {% endif %}
         </div>
-        <button type="submit" class="btn btn-success">{{ action }} Store</button>
-        <a href="{% url 'store_list' %}" class="btn" style="margin-left: 1rem;">Cancel</a>
+        
+        <div class="form-group" style="margin-top: 1rem;">
+            <label for="id_logo">Store Logo (Optional)</label>
+            <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: #666;">
+                This logo will be automatically watermarked onto new images uploaded to this store.
+            </div>
+            {{ form.logo }}
+            {% if form.logo.errors %}
+                <div style="color: #e74c3c; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.logo.errors }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div style="margin-top: 2rem;">
+            <button type="submit" class="btn btn-success">{{ action }} Store</button>
+            <a href="{% url 'store_list' %}" class="btn" style="margin-left: 1rem;">Cancel</a>
+        </div>
     </form>
 </div>
 {% endblock %}
-
