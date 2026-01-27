@@ -647,7 +647,7 @@ def api_search_product(request):
                     [p[1] for p in product_list],
                     limit=10,
                     scorer=fuzz.token_sort_ratio,
-                    score_cutoff=60,  # Minimum similarity score (0-100)
+                    score_cutoff=50,  # Minimum similarity score (0-100)
                 )
 
                 if matches:
