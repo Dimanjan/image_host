@@ -646,7 +646,7 @@ def api_search_product(request):
                     product_name,
                     [p[1] for p in product_list],
                     limit=10,
-                    scorer=fuzz.partial_ratio,
+                    scorer=fuzz.token_sort_ratio,
                     score_cutoff=60,  # Minimum similarity score (0-100)
                 )
 
@@ -677,7 +677,7 @@ def api_search_product(request):
         product_scores = []
         for product in products:
             # Calculate similarity score
-            score = fuzz.partial_ratio(product_name.lower(), product.name.lower())
+            score = fuzz.token_sort_ratio(product_name.lower(), product.name.lower())
             product_scores.append((product, score))
 
         # Sort by score (highest first)
