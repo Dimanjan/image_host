@@ -6,22 +6,42 @@ from .models import Category, Image, Product, Store
 class StoreForm(forms.ModelForm):
     class Meta:
         model = Store
-        fields = ["name", "logo"]  # Added logo
+        fields = [
+            "name", 
+            "logo", 
+            "store_type", 
+            "description", 
+            "whatsapp_number", 
+            "website", 
+            "google_maps_link", 
+            "maps_photo", 
+            "payment_qr"
+        ]
         widgets = {
-            "name": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "Enter store name",
-                    "required": True,
-                }
-            ),
-            "logo": forms.FileInput(
-                attrs={  # Added widget for logo
-                    "class": "form-control",
-                    "accept": "image/*",
-                }
-            ),
+            "name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter store name"}),
+            "logo": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
+            "store_type": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. Clothing, Electronics"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Describe your store..."}),
+            "whatsapp_number": forms.TextInput(attrs={"class": "form-control", "placeholder": "9812345678"}),
+            "website": forms.URLInput(attrs={"class": "form-control", "placeholder": "https://example.com"}),
+            "google_maps_link": forms.URLInput(attrs={"class": "form-control", "placeholder": "https://maps.google.com/..."}),
+            "maps_photo": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
+            "payment_qr": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
         }
+
+    def clean_whatsapp_number(self):
+        number = self.cleaned_data.get("whatsapp_number")
+        if number:
+            # Strip spaces, hyphens, and brackets
+            import re
+            cleaned_number = re.sub(r"[^\d+]", "", number)
+            
+            # Basic validation
+            if not re.match(r"^\+?\d{7,15}$", cleaned_number):
+                raise forms.ValidationError("Please enter a valid phone number (7-15 digits), optionally with + prefix.")
+            
+            return cleaned_number
+        return number
 
 
 class CategoryForm(forms.ModelForm):
@@ -117,3 +137,16 @@ class ImageUploadForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class BulkUploadForm(forms.Form):
+    csv_file = forms.FileField(
+        label="Select CSV File",
+        widget=forms.FileInput(
+            attrs={
+                "class": "form-control",
+                "accept": ".csv",
+                "required": True
+            }
+        )
+    )

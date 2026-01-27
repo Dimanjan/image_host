@@ -9,7 +9,7 @@ from django.db import models
 from PIL import Image as PilImage
 
 
-def compress_image(image_field, quality=70):
+def compress_image(image_field, quality=90):
     """Compress the image field using Pillow"""
     if not image_field:
         return
@@ -57,21 +57,62 @@ class Store(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="stores")
     # Added logo field
     logo = models.ImageField(upload_to="store_logos/", blank=True, null=True)
+    logo_url = models.URLField(blank=True, null=True, help_text="Public URL for logo (if not uploaded)")
+
+    # New fields
+    payment_qr = models.ImageField(upload_to="payment_qrs/", blank=True, null=True, help_text="Upload your Payment QR Code")
+    payment_qr_url = models.URLField(blank=True, null=True, help_text="Public URL for Payment QR")
+    
+    whatsapp_number = models.CharField(max_length=20, blank=True, null=True, help_text="e.g., +9779812345678")
+    website = models.URLField(blank=True, null=True)
+    google_maps_link = models.URLField(blank=True, null=True)
+    
+    maps_photo = models.ImageField(upload_to="store_maps/", blank=True, null=True, help_text="Upload a photo of your store location/map")
+    maps_photo_url = models.URLField(blank=True, null=True, help_text="Public URL for Map Photo")
+    
+    store_type = models.CharField(max_length=100, blank=True, null=True, help_text="e.g., Clothing, Electronics, Grocery")
+    description = models.TextField(blank=True, null=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]
+        
+    @property
+    def get_logo(self):
+        if self.logo:
+            return self.logo.url
+        return self.logo_url
+        
+    @property
+    def get_payment_qr(self):
+        if self.payment_qr:
+            return self.payment_qr.url
+        return self.payment_qr_url
+        
+    @property
+    def get_maps_photo(self):
+        if self.maps_photo:
+            return self.maps_photo.url
+        return self.maps_photo_url
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        if self.logo:
-            # Check if this is a new upload (logo has no file yet on filesystem or it's in memory)
-            # A simple heuristic: if it's an InMemoryUploadedFile, compress it.
-            if isinstance(self.logo.file, InMemoryUploadedFile):
-                compress_image(self.logo)
+        # Compress logo
+        if self.logo and isinstance(self.logo.file, InMemoryUploadedFile):
+            compress_image(self.logo)
+            
+        # Compress payment_qr
+        if self.payment_qr and isinstance(self.payment_qr.file, InMemoryUploadedFile):
+            compress_image(self.payment_qr)
+            
+        # Compress maps_photo
+        if self.maps_photo and isinstance(self.maps_photo.file, InMemoryUploadedFile):
+            compress_image(self.maps_photo)
+            
         super().save(*args, **kwargs)
 
 

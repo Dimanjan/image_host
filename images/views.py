@@ -353,6 +353,53 @@ def product_detail(request, store_id, product_id):
                 messages.success(
                     request, f"Successfully uploaded {uploaded_count} image(s)!"
                 )
+
+        # Check for URL uploads
+        image_urls = request.POST.getlist("image_urls")
+        if image_urls:
+            url_labels = request.POST.getlist("url_labels", [])
+            url_codes = request.POST.getlist("url_codes", [])
+            
+            url_count = 0
+            for idx, url in enumerate(image_urls):
+                if not url.strip():
+                    continue
+                    
+                # Get label
+                if idx < len(url_labels) and url_labels[idx].strip():
+                    label = url_labels[idx].strip()
+                else:
+                    # Use last part of URL as label fallback
+                    import os
+                    from urllib.parse import urlparse
+                    path = urlparse(url).path
+                    label = os.path.basename(path) or "Image from URL"
+
+                # Get code
+                image_code = ""
+                if idx < len(url_codes) and url_codes[idx].strip():
+                    code = url_codes[idx].strip().lower()
+                    code = re.sub(r"[^a-z0-9_]", "", code)
+                    code = re.sub(r"_+", "_", code)
+                    code = code.strip("_")
+                    if code:
+                        image_code = code
+                
+                # Create image instance
+                StoreImage.objects(store_id).create(
+                    product=product,
+                    name=label,
+                    url=url.strip(),
+                    image_code=image_code
+                )
+                url_count += 1
+            
+            if url_count > 0:
+                 messages.success(
+                    request, f"Successfully added {url_count} image URL(s)!"
+                )
+            
+        if "image_files" in request.FILES or image_urls:
             return redirect("product_detail", store_id=store_id, product_id=product.id)
         else:
             # Handle single image upload (legacy support)
@@ -648,7 +695,7 @@ def api_search_product(request):
                             "image_view",
                             kwargs={
                                 "store_name": slugify(store.name),
-                                "category_name": slugify(category.name),
+                                "category_name": slugify(category.name if category else "uncategorized"),
                                 "product_name": slugify(product.name),
                                 "image_code": image.image_code,
                             },
@@ -664,11 +711,11 @@ def api_search_product(request):
 
                 result = {
                     "store_name": store.name,
-                    "category_name": category.name,
+                    "category_name": category.name if category else "Uncategorized",
                     "product_name": product.name,
                     "images": images_data,
                     "image_count": len(images_data),
-                    "similarity_score": similarity_score,  # Add similarity score to results
+                    "similarity_score": similarity_score,
                 }
 
                 # Add price information if available
@@ -693,7 +740,7 @@ def api_search_product(request):
                 # Add description if available
                 if product.description:
                     result["description"] = product.description
-
+                
                 results.append(result)
             except Exception as e:
                 # Skip products with errors, but log them
@@ -731,6 +778,208 @@ def api_test_page(request):
     return render(request, "images/api_test.html", {"stores": stores})
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_store_create(request):
+    """API endpoint to create a new store"""
+    try:
+        data = request.POST # For form data
+        if not data and request.body:
+             try:
+                # Try parsing JSON if form data is empty
+                import json
+                data = json.loads(request.body)
+             except:
+                pass
+        
+        name = data.get("name")
+        if not name:
+            return JsonResponse({"success": False, "message": "Store Name is required"}, status=400)
+            
+        # Get user (either authenticated or provide user_id/username for API key scenarios if implemented, 
+        # but for now assume session or fail)
+        if not request.user.is_authenticated:
+            # For pure API testing without session, we might need a workaround or expect token.
+            # Assuming session auth for now as per constraints, or basic auth.
+            return JsonResponse({"success": False, "message": "Authentication required"}, status=401)
+            
+        # Create Store
+        store = Store(
+            user=request.user,
+            name=name,
+            store_type=data.get("store_type"),
+            description=data.get("description"),
+            whatsapp_number=data.get("whatsapp_number"),
+            website=data.get("website"),
+            google_maps_link=data.get("google_maps_link"),
+            logo_url=data.get("logo_url"),
+            payment_qr_url=data.get("payment_qr_url"),
+            maps_photo_url=data.get("maps_photo_url")
+        )
+        
+        # Handle File Uploads (priority over URLs)
+        if "logo" in request.FILES:
+            store.logo = request.FILES["logo"]
+        if "payment_qr" in request.FILES:
+            store.payment_qr = request.FILES["payment_qr"]
+        if "maps_photo" in request.FILES:
+            store.maps_photo = request.FILES["maps_photo"]
+            
+        store.save()
+        
+        # Initialize tables
+        try:
+            from .store_tables import create_store_tables
+            create_store_tables(store.id)
+        except Exception as e:
+            # Log error but don't fail the request completely
+            print(f"Failed to create tables: {e}")
+            
+        return JsonResponse({
+            "success": True, 
+            "message": "Store created successfully",
+            "store": {
+                "id": store.id,
+                "name": store.name,
+                "logo_url": store.get_logo,
+                "created_at": store.created_at.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+
+@login_required
+def download_sample_csv(request):
+    """Download a sample CSV file for bulk upload"""
+    import csv
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="products_sample.csv"'
+    
+    writer = csv.writer(response)
+    # Header
+    writer.writerow(['Category', 'Name', 'Marked Price', 'Min Discounted Price', 'Description', 'Image URLs'])
+    # Sample data
+    writer.writerow(['Electronics', 'Smartphone X', '50000', '45000', 'Flagship phone with 128GB storage', 'https://example.com/phone1.jpg,https://example.com/phone2.jpg'])
+    writer.writerow(['Clothing', 'Men\'s T-Shirt', '1500', '1200', 'Cotton t-shirt, size M', ''])
+    
+    return response
+
+
+@login_required
+def product_bulk_upload(request, store_id):
+    """Bulk upload products via CSV"""
+    from .forms import BulkUploadForm
+    from .store_helpers import StoreCategory, StoreProduct
+    import csv 
+    import io
+
+    store = get_object_or_404(Store, id=store_id, user=request.user)
+    
+    if request.method == "POST":
+        form = BulkUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            csv_file = request.FILES['csv_file']
+            
+            # Check if file is CSV
+            if not csv_file.name.endswith('.csv'):
+                messages.error(request, 'Please upload a CSV file.')
+                return render(request, "images/bulk_upload.html", {"form": form, "store": store})
+                
+            try:
+                # Read CSV
+                decoded_file = csv_file.read().decode('utf-8-sig').splitlines()
+                reader = csv.DictReader(decoded_file)
+                
+                # Verify headers
+                required_headers = ['Category', 'Name']
+                if not reader.fieldnames or not all(h in reader.fieldnames for h in required_headers):
+                    messages.error(request, f'Invalid CSV format. Required columns: {", ".join(required_headers)}')
+                    return render(request, "images/bulk_upload.html", {"form": form, "store": store})
+                    
+                products_created = 0
+                categories_created = 0
+                
+                # Process rows
+                for row in reader:
+                    category_name = row.get('Category', '').strip()
+                    product_name = row.get('Name', '').strip()
+                    
+                    if not category_name or not product_name:
+                        continue
+                        
+                    # Get or Create Category
+                    store_categories = StoreCategory.objects(store_id).filter(name__icontains=category_name)
+                    # Simple case-insensitive name check logic
+                    category = None
+                    for c in store_categories:
+                        if c.name.lower() == category_name.lower():
+                            category = c
+                            break
+                    
+                    if not category:
+                        category = StoreCategory.objects(store_id).create(name=category_name)
+                        categories_created += 1
+                        
+                    # Create Product
+                    marked_price = row.get('Marked Price')
+                    min_discounted_price = row.get('Min Discounted Price')
+                    
+                    # Clean prices (handle empty strings)
+                    marked_price = float(marked_price) if marked_price and marked_price.strip() else None
+                    min_discounted_price = float(min_discounted_price) if min_discounted_price and min_discounted_price.strip() else None
+                    
+                    product = StoreProduct.objects(store_id).create(
+                        category=category,
+                        name=product_name,
+                        marked_price=marked_price,
+                        min_discounted_price=min_discounted_price,
+                        description=row.get('Description', '').strip()
+                    )
+                    
+                    # Handle Image URLs
+                    image_urls_str = row.get('Image URLs', '').strip()
+                    if image_urls_str:
+                        # Split by comma or semicolon
+                        import re
+                        urls = re.split(r'[;,]', image_urls_str)
+                        for i, url in enumerate(urls):
+                            url = url.strip()
+                            if url:
+                                try:
+                                    # Create StoreImage
+                                    # Generate a code if possible, or let auto-generation handle it
+                                    from urllib.parse import urlparse
+                                    import os
+                                    
+                                    path = urlparse(url).path
+                                    filename = os.path.basename(path) or f"{product_name}_{i+1}"
+                                    
+                                    from .store_helpers import StoreImage
+                                    StoreImage.objects(store_id).create(
+                                        product=product,
+                                        name=filename,
+                                        url=url
+                                    )
+                                except Exception as img_err:
+                                    print(f"Error adding image {url} for {product_name}: {img_err}")
+                                    
+                    products_created += 1
+                    
+                messages.success(request, f"Successfully uploaded {products_created} products (New categories: {categories_created})!")
+                return redirect('store_detail', store_id=store.id)
+                
+            except Exception as e:
+                import traceback
+                print(traceback.format_exc())
+                messages.error(request, f'Error processing file: {str(e)}')
+    else:
+        form = BulkUploadForm()
+        
+    return render(request, "images/bulk_upload.html", {"form": form, "store": store})
+
+
 def image_view(request, store_name, category_name, product_name, image_code):
     """Public view for accessing images by code"""
     import mimetypes
@@ -765,11 +1014,16 @@ def image_view(request, store_name, category_name, product_name, image_code):
     ):
         raise Http404("Image not found")
 
+    # If image has a remote URL and no local file (or we prefer remote), redirect
+    if getattr(image, 'url', None):
+        from django.shortcuts import redirect
+        return redirect(image.url)
+
     # Get file path and serve it
     from django.core.files.storage import default_storage
 
     file_path = image.image_file
-    if default_storage.exists(file_path):
+    if file_path and default_storage.exists(file_path):
         file = default_storage.open(file_path, "rb")
         content_type, _ = mimetypes.guess_type(file_path)
         if not content_type:

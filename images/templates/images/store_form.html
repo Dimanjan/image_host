@@ -7,27 +7,76 @@
     <h2 style="margin-bottom: 1.5rem;">{{ action }} Store</h2>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
+        <!-- Basic Information -->
+        <h3
+            style="font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; margin-bottom: 1rem; margin-top: 0;">
+            Basic Information</h3>
+
         <div class="form-group">
-            <label for="id_name">Store Name</label>
+            <label for="id_name">Store Name *</label>
             {{ form.name }}
-            {% if form.name.errors %}
-                <div style="color: #e74c3c; font-size: 0.875rem; margin-top: 0.25rem;">
-                    {{ form.name.errors }}
-                </div>
-            {% endif %}
+            {{ form.name.errors }}
         </div>
-        
-        <div class="form-group" style="margin-top: 1rem;">
-            <label for="id_logo">Store Logo (Optional)</label>
-            <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: #666;">
-                This logo will be automatically watermarked onto new images uploaded to this store.
-            </div>
+
+        <div class="form-group">
+            <label for="id_store_type">Store Type</label>
+            {{ form.store_type }}
+            <small class="form-text text-muted">e.g., Clothing, Electronics, Restaurant, etc.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="id_description">Description</label>
+            {{ form.description }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_logo">Store Logo</label>
             {{ form.logo }}
-            {% if form.logo.errors %}
-                <div style="color: #e74c3c; font-size: 0.875rem; margin-top: 0.25rem;">
-                    {{ form.logo.errors }}
-                </div>
-            {% endif %}
+            <small class="form-text text-muted">Watermarked automatically onto uploaded images.</small>
+        </div>
+
+        <!-- Contact Information -->
+        <h3
+            style="font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; margin-bottom: 1rem; margin-top: 2rem;">
+            Contact Details</h3>
+
+        <div class="form-group">
+            <label for="id_whatsapp_number">WhatsApp Number</label>
+            {{ form.whatsapp_number }}
+            <small class="form-text text-muted">Include country code if possible (e.g., +977...). Digits only.</small>
+            {{ form.whatsapp_number.errors }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_website">Website</label>
+            {{ form.website }}
+        </div>
+
+        <!-- Location -->
+        <h3
+            style="font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; margin-bottom: 1rem; margin-top: 2rem;">
+            Location</h3>
+
+        <div class="form-group">
+            <label for="id_google_maps_link">Google Maps Link</label>
+            {{ form.google_maps_link }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_maps_photo">Location Photo / Map Image</label>
+            {{ form.maps_photo }}
+            <small class="form-text text-muted">Upload an image of your location or a map screenshot.</small>
+        </div>
+
+        <!-- Payment -->
+        <h3
+            style="font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; margin-bottom: 1rem; margin-top: 2rem;">
+            Payment</h3>
+
+        <div class="form-group">
+            <label for="id_payment_qr">Payment QR Code</label>
+            {{ form.payment_qr }}
+            <small class="form-text text-muted">Upload your QR code for customers to scan.</small>
         </div>
 
         <div style="margin-top: 2rem;">

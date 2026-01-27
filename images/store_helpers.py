@@ -49,10 +49,7 @@ class StoreCategory:
     def delete(self):
         if self.id:
             with connection.cursor() as cursor:
-                sql = "UPDATE {} SET name = ?, updated_at = ? WHERE id = ?".format(
-                    self.table_name
-                )
-
+                sql = "DELETE FROM {} WHERE id = ?".format(self.table_name)
                 cursor.execute(sql, [self.id])
 
     def __str__(self):
@@ -227,10 +224,7 @@ class StoreProduct:
     def delete(self):
         if self.id:
             with connection.cursor() as cursor:
-                sql = "UPDATE {} SET name = ?, updated_at = ? WHERE id = ?".format(
-                    self.table_name
-                )
-
+                sql = "DELETE FROM {} WHERE id = ?".format(self.table_name)
                 cursor.execute(sql, [self.id])
 
     def __str__(self):
@@ -329,6 +323,7 @@ class StoreImage:
             self.name = data.get("name")
             self.image_code = data.get("image_code")
             self.image_file = data.get("image_file")
+            self.url = data.get("url")
             self.created_at = data.get("created_at")
             self.updated_at = data.get("updated_at")
             self._product = None
@@ -338,6 +333,7 @@ class StoreImage:
             self.name = None
             self.image_code = None
             self.image_file = None
+            self.url = None
             self.created_at = None
             self.updated_at = None
             self._product = None
@@ -368,7 +364,7 @@ class StoreImage:
         from django.core.files.base import ContentFile
         from PIL import Image
 
-        from .models import Store, generate_image_code
+        from .models import Store, generate_image_code, compress_image
 
         # Auto-generate image_code if not provided
         if not self.image_code or self.image_code.strip() == "":
@@ -377,6 +373,16 @@ class StoreImage:
                     self.image_code = generate_image_code(self.image_file.name)
                 else:
                     self.image_code = generate_image_code(str(self.image_file))
+            elif self.url:
+                 # Try to get filename from URL
+                 import os
+                 from urllib.parse import urlparse
+                 path = urlparse(self.url).path
+                 filename = os.path.basename(path)
+                 if filename:
+                     self.image_code = generate_image_code(filename)
+                 else:
+                     self.image_code = generate_image_code(self.name)
             else:
                 self.image_code = generate_image_code(self.name)
         else:
@@ -449,17 +455,68 @@ class StoreImage:
                         if ext in [".jpg", ".jpeg"]:
                             image = image.convert("RGB")
                             save_format = "JPEG"
+                            # Use compression settings
+                            image.save(output, format=save_format, quality=90, optimize=True)
                         elif ext == ".gif":
                             save_format = "GIF"
+                            image.save(output, format=save_format)
+                        else:
+                            # PNG or others
+                            image.save(output, format=save_format)
+                            
+                        # If PNG, we might want to optimize too, but quality param is different. 
+                        # For now, focus on JPEG compression as requested.
 
-                        image.save(output, format=save_format)
                         output.seek(0)
 
                         # Replace the file content
                         self.image_file = ContentFile(output.read(), name=filename)
             except Exception as e:
-                # Proceed without watermark on error
+                # Proceed without watermark on error, but ensure compression
                 print(f"Error applying watermark: {str(e)}")
+                if self.image_file and not self.url:
+                     # Attempt generic compression
+                     try:
+                         # compress_image expects an object with .file, .name. 
+                         # self.image_file is UploadedFile/ContentFile.
+                         # We can try to wrap it effectively or just use it if it mimics FieldFile.
+                         # Actually compress_image modifies .file attribute of the passed object.
+                         # StoreImage.image_file IS the file object (UploadedFile). 
+                         # So passing self directly won't work, passing self.image_file might not work if it doesn't have .file 
+                         # (UploadedFile has .file, ContentFile might not in same way).
+                         # Let's simplify: only compress if it's an UploadedFile (fresh upload).
+                         if isinstance(self.image_file, UploadedFile):
+                              # We need a wrapper to satisfy compress_image which updates field.file
+                              # Or better, just replicate logic or make compress_image more flexible.
+                              # Given I can't easily change compress_image signature everywhere if used by other models,
+                              # I'll just replicate the basic safe logic or assume it works on the file wrapper.
+                              # Actually, let's just use the Pillow logic directly here to be safe and explicit.
+                              pass 
+                     except:
+                         pass
+
+        # If we didn't apply watermark (or failed), we simply save the file. 
+        # But we MUST compress it if it is a new upload.
+        # Check if it is a new upload (UploadedFile matches) AND we haven't already processed it (ContentFile matches processed).
+        # Note: In the watermark block above, we replaced self.image_file with ContentFile.
+        # So if it is STILL UploadedFile, it means no watermark was applied.
+        if isinstance(self.image_file, UploadedFile):
+             try:
+                 # Compress the raw upload
+                 img = Image.open(self.image_file)
+                 if img.mode != "RGB":
+                     img = img.convert("RGB")
+                 
+                 output = BytesIO()
+                 # Enforce 90% quality
+                 img.save(output, format="JPEG", quality=90, optimize=True)
+                 output.seek(0)
+                 
+                 # Create new ContentFile with .jpg extension
+                 new_name = os.path.splitext(self.image_file.name)[0] + ".jpg"
+                 self.image_file = ContentFile(output.read(), name=new_name)
+             except Exception as e:
+                 print(f"Compression failed: {e}")
 
         # Handle file upload saving
         file_path = None
@@ -479,7 +536,7 @@ class StoreImage:
             if self.id:
                 # Update
                 if file_path:
-                    sql = "UPDATE {} SET product_id = ?, name = ?, image_code = ?, image_file = ?, updated_at = ? WHERE id = ?".format(
+                    sql = "UPDATE {} SET product_id = ?, name = ?, image_code = ?, image_file = ?, url = ?, updated_at = ? WHERE id = ?".format(
                         self.table_name
                     )
                     cursor.execute(
@@ -489,29 +546,30 @@ class StoreImage:
                             self.name,
                             self.image_code,
                             file_path,
+                            self.url,
                             now,
                             self.id,
                         ],
                     )
                 else:
-                    sql = "UPDATE {} SET product_id = ?, name = ?, image_code = ?, updated_at = ? WHERE id = ?".format(
+                    sql = "UPDATE {} SET product_id = ?, name = ?, image_code = ?, url = ?, updated_at = ? WHERE id = ?".format(
                         self.table_name
                     )
                     cursor.execute(
-                        sql, [self.product_id, self.name, self.image_code, now, self.id]
+                        sql, [self.product_id, self.name, self.image_code, self.url, now, self.id]
                     )
             else:
                 # Create
                 if not file_path:
                     file_path = (
-                        self.image_file if isinstance(self.image_file, str) else ""
+                        self.image_file if isinstance(self.image_file, str) else None
                     )
-                sql = "INSERT INTO {} (product_id, name, image_code, image_file, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)".format(
+                sql = "INSERT INTO {} (product_id, name, image_code, image_file, url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)".format(
                     self.table_name
                 )
                 cursor.execute(
                     sql,
-                    [self.product_id, self.name, self.image_code, file_path, now, now],
+                    [self.product_id, self.name, self.image_code, file_path, self.url, now, now],
                 )
                 self.id = cursor.lastrowid
                 self.created_at = now
@@ -528,10 +586,7 @@ class StoreImage:
                 except:
                     pass
             with connection.cursor() as cursor:
-                sql = "UPDATE {} SET name = ?, updated_at = ? WHERE id = ?".format(
-                    self.table_name
-                )
-
+                sql = "DELETE FROM {} WHERE id = ?".format(self.table_name)
                 cursor.execute(sql, [self.id])
 
     def __str__(self):

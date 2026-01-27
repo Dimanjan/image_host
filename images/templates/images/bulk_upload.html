@@ -1,0 +1,54 @@
+{% extends 'images/base.html' %}
+
+{% block title %}Bulk Upload - {{ store.name }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px; margin: 2rem auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 style="margin: 0;">Bulk Upload Products</h2>
+        <a href="{% url 'store_detail' store.id %}" class="btn">← Back to Store</a>
+    </div>
+
+    <div
+        style="background: #f8f9fa; border-left: 4px solid #3498db; padding: 1.5rem; margin-bottom: 2rem; border-radius: 4px;">
+        <h4 style="margin-top: 0; color: #2c3e50;">Instructions</h4>
+        <ol style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li>Download the sample CSV file to see the required format.</li>
+            <li>Fill in your product details. required columns: <strong>Category</strong>, <strong>Name</strong>.</li>
+            <li><strong>Category</strong>: If the category doesn't exist, it will be created automatically.</li>
+            <li><strong>Marked Price</strong> & <strong>Min Discounted Price</strong> are optional.</li>
+            <li><strong>Image URLs</strong>: Optional. Add multiple URLs separated by <strong>semicolons (;)</strong> or
+                <strong>commas (,)</strong>. <br>
+                <small style="color: #666;">Note: If using commas, ensure the cell is enclosed in quotes (standard CSV
+                    format).</small>
+            </li>
+            <li>Save the file as <strong>.csv</strong> and upload it below.</li>
+        </ol>
+        <a href="{% url 'download_sample_csv' %}" class="btn btn-primary">
+            ⬇️ Download Sample CSV
+        </a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_csv_file" style="font-weight: 500; font-size: 1.1rem; margin-bottom: 1rem; display: block;">
+                Select CSV File
+            </label>
+            {{ form.csv_file }}
+            {% if form.csv_file.errors %}
+            <div style="color: #e74c3c; font-size: 0.875rem; margin-top: 0.25rem;">
+                {{ form.csv_file.errors }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="margin-top: 2rem;">
+            <button type="submit" class="btn btn-success" style="padding: 0.75rem 2rem; font-size: 1.1rem;">
+                🚀 Upload Products
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

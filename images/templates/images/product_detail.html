@@ -5,33 +5,37 @@
 {% block content %}
 <div style="margin-bottom: 2rem;">
     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <a href="{% url 'category_detail' store.id category.id %}" class="btn" style="margin-bottom: 1rem;">← Back to Category</a>
+        <a href="{% url 'category_detail' store.id category.id %}" class="btn" style="margin-bottom: 1rem;">← Back to
+            Category</a>
         <div>
-            <a href="{% url 'product_update' store.id product.id %}" class="btn btn-primary" style="margin-bottom: 1rem;">Edit Details</a>
+            <a href="{% url 'product_update' store.id product.id %}" class="btn btn-primary"
+                style="margin-bottom: 1rem;">Edit Details</a>
         </div>
     </div>
     <h2>{{ store.name }} → {{ category.name }} → {{ product.name }}</h2>
     {% if product.marked_price or product.min_discounted_price %}
     <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; display: inline-block;">
         {% if product.marked_price %}
-            <span style="font-size: 1.1rem; font-weight: 500; color: #666; text-decoration: line-through; margin-right: 1rem;">
-                NPR {{ product.marked_price|floatformat:2 }}
-            </span>
+        <span
+            style="font-size: 1.1rem; font-weight: 500; color: #666; text-decoration: line-through; margin-right: 1rem;">
+            NPR {{ product.marked_price|floatformat:2 }}
+        </span>
         {% endif %}
         {% if product.min_discounted_price %}
-            <span style="font-size: 1.3rem; font-weight: 600; color: #27ae60;">
-                NPR {{ product.min_discounted_price|floatformat:2 }}
-            </span>
+        <span style="font-size: 1.3rem; font-weight: 600; color: #27ae60;">
+            NPR {{ product.min_discounted_price|floatformat:2 }}
+        </span>
         {% endif %}
         {% if discount_percent %}
-            <span style="color: #e74c3c; font-weight: 500; margin-left: 1rem;">
-                ({{ discount_percent }}% off)
-            </span>
+        <span style="color: #e74c3c; font-weight: 500; margin-left: 1rem;">
+            ({{ discount_percent }}% off)
+        </span>
         {% endif %}
     </div>
     {% endif %}
     {% if product.description %}
-    <div style="margin-top: 1.5rem; padding: 1.5rem; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #3498db;">
+    <div
+        style="margin-top: 1.5rem; padding: 1.5rem; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #3498db;">
         <h3 style="margin-bottom: 0.75rem; font-size: 1.1rem; color: #2c3e50;">Product Details</h3>
         <p style="color: #333; line-height: 1.6; white-space: pre-wrap;">{{ product.description }}</p>
     </div>
@@ -44,85 +48,115 @@
         {% csrf_token %}
         <div class="form-group">
             <label for="image_files">Select Images (Multiple allowed)</label>
-            <input type="file" 
-                   id="image_files" 
-                   name="image_files" 
-                   class="form-control" 
-                   accept="image/*" 
-                   multiple 
-                   required>
+            <input type="file" id="image_files" name="image_files" class="form-control" accept="image/*" multiple
+                required>
             <small style="color: #666; font-size: 0.875rem;">You can select multiple images at once</small>
         </div>
-        
+
         <div id="imageLabelsContainer" style="margin-top: 1.5rem; display: none;">
             <h4 style="margin-bottom: 1rem; font-size: 1rem;">Labels and Previews:</h4>
             <div id="labelsList">
-                </div>
+            </div>
         </div>
-        
+
         <button type="submit" class="btn btn-success" id="uploadBtn" style="margin-top: 1rem; display: none;">
             Upload Images
         </button>
     </form>
 </div>
 
+<div class="card" style="margin-top: 2rem;">
+    <h3 style="margin-bottom: 1rem;">Add Images by URL</h3>
+    <form method="post" id="urlUploadForm">
+        {% csrf_token %}
+        <div id="urlInputsContainer">
+            <div class="url-input-row"
+                style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: start; margin-bottom: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Image URL</label>
+                    <input type="url" name="image_urls" class="form-control" placeholder="https://example.com/image.jpg"
+                        required>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Label (Optional)</label>
+                    <input type="text" name="url_labels" class="form-control" placeholder="Image Label">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Code (Optional)</label>
+                    <input type="text" name="url_codes" class="form-control" placeholder="auto-generated"
+                        style="font-family: monospace;">
+                </div>
+            </div>
+        </div>
+
+        <button type="button" id="addUrlRowBtn" class="btn"
+            style="background: #eef2f7; color: #2c3e50; border: 1px solid #dce4ec; margin-bottom: 1rem;">+ Add Another
+            URL</button>
+
+        <button type="submit" class="btn btn-success" style="display: block;">
+            Add Images
+        </button>
+    </form>
+</div>
+
+
 <div class="card">
     <h3 style="margin-bottom: 1rem;">Product Images</h3>
     {% if images %}
-        <table id="imagesTable">
-            <thead>
-                <tr>
-                    <th>Image</th>
-                    <th>Name</th>
-                    <th>Image Code</th>
-                    <th>Image URL</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for image in images %}
-                    <tr data-image-id="{{ image.id }}">
-                        <td>
-                            {% for img_data in image_data %}
-                                {% if img_data.id == image.id %}
-                                    <img src="{{ img_data.url }}" alt="{{ image.name }}" class="image-preview" style="max-width: 150px; max-height: 150px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; padding: 4px; background: white;">
-                                {% endif %}
-                            {% endfor %}
-                        </td>
-                        <td>
-                            <span class="editable" contenteditable="true" data-field="name" data-image-id="{{ image.id }}">
-                                {{ image.name }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="editable" contenteditable="true" data-field="image_code" data-image-id="{{ image.id }}">
-                                {{ image.image_code }}
-                            </span>
-                        </td>
-                        <td>
-                            {% for img_data in image_data %}
-                                {% if img_data.id == image.id %}
-                                    <input type="text" 
-                                           value="{{ img_data.url }}" 
-                                           readonly 
-                                           class="form-control" 
-                                           style="font-size: 0.875rem; cursor: pointer;"
-                                           onclick="this.select();">
-                                {% endif %}
-                            {% endfor %}
-                        </td>
-                        <td>
-                            <button class="btn btn-success save-btn" data-image-id="{{ image.id }}" style="display: none;">Save</button>
-                            <a href="{% url 'image_delete' store.id image.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this image?');">Delete</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <table id="imagesTable">
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Image Code</th>
+                <th>Image URL</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for image in images %}
+            <tr data-image-id="{{ image.id }}">
+                <td>
+                    {% for img_data in image_data %}
+                    {% if img_data.id == image.id %}
+                    <img src="{{ img_data.url }}" alt="{{ image.name }}" class="image-preview"
+                        style="max-width: 150px; max-height: 150px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; padding: 4px; background: white;">
+                    {% endif %}
+                    {% endfor %}
+                </td>
+                <td>
+                    <span class="editable" contenteditable="true" data-field="name" data-image-id="{{ image.id }}">
+                        {{ image.name }}
+                    </span>
+                </td>
+                <td>
+                    <span class="editable" contenteditable="true" data-field="image_code"
+                        data-image-id="{{ image.id }}">
+                        {{ image.image_code }}
+                    </span>
+                </td>
+                <td>
+                    {% for img_data in image_data %}
+                    {% if img_data.id == image.id %}
+                    <input type="text" value="{{ img_data.url }}" readonly class="form-control"
+                        style="font-size: 0.875rem; cursor: pointer;" onclick="this.select();">
+                    {% endif %}
+                    {% endfor %}
+                </td>
+                <td>
+                    <button class="btn btn-success save-btn" data-image-id="{{ image.id }}"
+                        style="display: none;">Save</button>
+                    <a href="{% url 'image_delete' store.id image.id %}" class="btn btn-danger"
+                        onclick="return confirm('Are you sure you want to delete this image?');">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
     {% else %}
-        <p style="text-align: center; color: #666; padding: 2rem;">
-            No images uploaded yet. Upload your first image above!
-        </p>
+    <p style="text-align: center; color: #666; padding: 2rem;">
+        No images uploaded yet. Upload your first image above!
+    </p>
     {% endif %}
 </div>
 
@@ -135,33 +169,33 @@
     const labelsContainer = document.getElementById('imageLabelsContainer');
     const labelsList = document.getElementById('labelsList');
     const uploadBtn = document.getElementById('uploadBtn');
-    
-    imageFilesInput.addEventListener('change', function(e) {
+
+    imageFilesInput.addEventListener('change', function (e) {
         const files = Array.from(e.target.files);
-        
+
         if (files.length === 0) {
             labelsContainer.style.display = 'none';
             uploadBtn.style.display = 'none';
             return;
         }
-        
+
         // Show labels container and upload button
         labelsContainer.style.display = 'block';
         uploadBtn.style.display = 'inline-block';
-        
+
         // Clear previous labels and previews
         labelsList.innerHTML = '';
-        
+
         // Create label input and preview for each file
         files.forEach((file, index) => {
             // Create container for this image row (label on left, preview on right)
             const imageRow = document.createElement('div');
             imageRow.style.cssText = 'display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: start; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #eee;';
-            
+
             // Left side: Label and Image Code inputs
             const labelDiv = document.createElement('div');
             labelDiv.className = 'form-group';
-            
+
             const filename = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
             // Generate image code from filename
             const imageCode = filename.toLowerCase()
@@ -170,7 +204,7 @@
                 .trim()
                 .replace(/\s/g, '_')
                 .replace(/_+/g, '_');
-            
+
             labelDiv.innerHTML = `
                 <label for="image_label_${index}" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
                     Label (for human viewing): <span style="color: #666; font-weight: normal; font-size: 0.875rem;">${file.name}</span>
@@ -196,7 +230,7 @@
                     Leave empty to auto-generate from filename
                 </small>
             `;
-            
+
             // Right side: Image preview
             const previewDiv = document.createElement('div');
             previewDiv.style.cssText = 'display: flex; flex-direction: column; align-items: center; min-width: 220px;';
@@ -207,21 +241,21 @@
                      alt="Preview" 
                      style="max-width: 200px; max-height: 200px; border: 2px solid #ddd; border-radius: 4px; padding: 4px; background: white; object-fit: contain; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             `;
-            
+
             // Read file and create preview
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 const previewImg = document.getElementById(`preview_${index}`);
                 if (previewImg) {
                     previewImg.src = e.target.result;
                 }
             };
             reader.readAsDataURL(file);
-            
+
             // Add both to row
             imageRow.appendChild(labelDiv);
             imageRow.appendChild(previewDiv);
-            
+
             labelsList.appendChild(imageRow);
         });
     });
@@ -230,9 +264,9 @@
     const editableFields = document.querySelectorAll('.editable');
     const saveButtons = document.querySelectorAll('.save-btn');
     const storeId = {{ store.id }};
-    
+
     editableFields.forEach(field => {
-        field.addEventListener('input', function() {
+        field.addEventListener('input', function () {
             const imageId = this.getAttribute('data-image-id');
             const saveBtn = document.querySelector(`.save-btn[data-image-id="${imageId}"]`);
             if (saveBtn) {
@@ -243,12 +277,12 @@
 
     // Save changes
     saveButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const imageId = this.getAttribute('data-image-id');
             const row = document.querySelector(`tr[data-image-id="${imageId}"]`);
             const nameField = row.querySelector('[data-field="name"]');
             const codeField = row.querySelector('[data-field="image_code"]');
-            
+
             const data = {
                 name: nameField.textContent.trim(),
                 image_code: codeField.textContent.trim()
@@ -262,27 +296,59 @@
                 },
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    // Update the URL field
-                    const urlInput = row.querySelector('input[type="text"]');
-                    urlInput.value = result.image.url;
-                    
-                    // Hide save button
-                    this.style.display = 'none';
-                    
-                    // Show success message
-                    alert('Image updated successfully!');
-                } else {
-                    alert('Error: ' + result.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while updating the image.');
-            });
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // Update the URL field
+                        const urlInput = row.querySelector('input[type="text"]');
+                        urlInput.value = result.image.url;
+
+                        // Hide save button
+                        this.style.display = 'none';
+
+                        // Show success message
+                        alert('Image updated successfully!');
+                    } else {
+                        alert('Error: ' + result.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while updating the image.');
+                });
         });
     });
+
+    // Handle adding new URL rows
+    const addUrlRowBtn = document.getElementById('addUrlRowBtn');
+    const urlInputsContainer = document.getElementById('urlInputsContainer');
+
+    if (addUrlRowBtn) {
+        addUrlRowBtn.addEventListener('click', function () {
+            const row = document.createElement('div');
+            row.className = 'url-input-row';
+            row.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 1rem; align-items: start; margin-bottom: 1rem;';
+
+            row.innerHTML = `
+                <div class="form-group" style="margin-bottom: 0;">
+                    <input type="url" name="image_urls" class="form-control" placeholder="https://example.com/image.jpg" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <input type="text" name="url_labels" class="form-control" placeholder="Image Label">
+                </div>
+                 <div class="form-group" style="margin-bottom: 0;">
+                    <input type="text" name="url_codes" class="form-control" placeholder="Code (opt)" style="font-family: monospace;">
+                </div>
+                <button type="button" class="btn btn-danger remove-url-row" style="padding: 0.5rem 0.75rem;">×</button>
+            `;
+
+            urlInputsContainer.appendChild(row);
+
+            // Add remove handler
+            row.querySelector('.remove-url-row').addEventListener('click', function () {
+                row.remove();
+            });
+        });
+    }
 </script>
 {% endblock %}

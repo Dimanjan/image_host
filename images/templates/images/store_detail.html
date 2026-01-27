@@ -6,50 +6,139 @@
 {% block content %}
 <div style="margin-bottom: 2rem;">
     <a href="{% url 'store_list' %}" class="btn" style="margin-bottom: 1rem;">← Back to Stores</a>
-    
+
     <div style="display: flex; align-items: center; gap: 1rem;">
-        {% if store.logo %}
-            <img src="{{ store.logo.url }}" alt="{{ store.name }} Logo" style="height: 60px; width: auto; max-width: 150px; object-fit: contain; border: 1px solid #eee; padding: 2px; border-radius: 4px;">
+        {% if store.get_logo %}
+        <img src="{{ store.get_logo }}" alt="{{ store.name }} Logo"
+            style="height: 60px; width: auto; max-width: 150px; object-fit: contain; border: 1px solid #eee; padding: 2px; border-radius: 4px;">
         {% endif %}
-        <h2 style="margin: 0;">{{ store.name }}</h2>
+        <div>
+            <h2 style="margin: 0;">{{ store.name }}</h2>
+            {% if store.store_type %}
+            <div style="color: #666; font-size: 0.9rem; margin-top: 0.25rem;">
+                {{ store.store_type }}
+            </div>
+            {% endif %}
+        </div>
     </div>
+
+    {% if store.description or store.whatsapp_number or store.google_maps_link or store.get_payment_qr %}
+    <div
+        style="margin-top: 1.5rem; padding: 1.5rem; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div>
+            {% if store.description %}
+            <div style="margin-bottom: 1.5rem;">
+                <h4
+                    style="color: #2c3e50; margin-bottom: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                    About</h4>
+                <p style="color: #444; line-height: 1.6; white-space: pre-wrap;">{{ store.description }}</p>
+            </div>
+            {% endif %}
+
+            {% if store.whatsapp_number or store.website %}
+            <div style="margin-bottom: 1.5rem;">
+                <h4
+                    style="color: #2c3e50; margin-bottom: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                    Contact</h4>
+                {% if store.whatsapp_number %}
+                <p style="margin-bottom: 0.5rem;">
+                    <strong>WhatsApp:</strong>
+                    <a href="https://wa.me/{{ store.whatsapp_number|cut:'+' }}" target="_blank"
+                        style="color: #27ae60; text-decoration: none;">
+                        {{ store.whatsapp_number }}
+                    </a>
+                </p>
+                {% endif %}
+                {% if store.website %}
+                <p style="margin-bottom: 0.5rem;">
+                    <strong>Website:</strong>
+                    <a href="{{ store.website }}" target="_blank" style="color: #3498db; text-decoration: none;">
+                        Visit Website
+                    </a>
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div>
+            {% if store.google_maps_link or store.get_maps_photo %}
+            <div style="margin-bottom: 1.5rem;">
+                <h4
+                    style="color: #2c3e50; margin-bottom: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                    Location</h4>
+                {% if store.google_maps_link %}
+                <p style="margin-bottom: 0.5rem;">
+                    <a href="{{ store.google_maps_link }}" target="_blank" class="btn"
+                        style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">
+                        📍 View on Google Maps
+                    </a>
+                </p>
+                {% endif %}
+                {% if store.get_maps_photo %}
+                <div style="margin-top: 0.5rem;">
+                    <img src="{{ store.get_maps_photo }}" alt="Location Map"
+                        style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #eee;">
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if store.get_payment_qr %}
+            <div>
+                <h4
+                    style="color: #2c3e50; margin-bottom: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                    Payment</h4>
+                <img src="{{ store.get_payment_qr }}" alt="Payment QR"
+                    style="max-width: 150px; height: auto; border: 1px solid #ddd; padding: 4px; border-radius: 4px;">
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+
 
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3 style="margin: 0;">Product Categories</h3>
-        <a href="{% url 'category_create' store.id %}" class="btn btn-success">Create Category</a>
+        <div>
+            <a href="{% url 'product_bulk_upload' store.id %}" class="btn btn-primary"
+                style="margin-right: 0.5rem;">Bulk Upload Products</a>
+            <a href="{% url 'category_create' store.id %}" class="btn btn-success">Create Category</a>
+        </div>
     </div>
-    
+
     {% if categories %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Category Name</th>
-                    <th>Products</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for category in categories %}
-                    <tr>
-                        <td>
-                            <a href="{% url 'category_detail' store.id category.id %}" style="color: #3498db; text-decoration: none; font-weight: 500;">
-                                {{ category.name }}
-                            </a>
-                        </td>
-                        <td>{{ category_product_counts|get_item:category.id }} product(s)</td>
-                        <td>
-                            <a href="{% url 'category_detail' store.id category.id %}" class="btn">View</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <table>
+        <thead>
+            <tr>
+                <th>Category Name</th>
+                <th>Products</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for category in categories %}
+            <tr>
+                <td>
+                    <a href="{% url 'category_detail' store.id category.id %}"
+                        style="color: #3498db; text-decoration: none; font-weight: 500;">
+                        {{ category.name }}
+                    </a>
+                </td>
+                <td>{{ category_product_counts|get_item:category.id }} product(s)</td>
+                <td>
+                    <a href="{% url 'category_detail' store.id category.id %}" class="btn">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
     {% else %}
-        <p style="text-align: center; color: #666; padding: 2rem;">
-            No categories yet. <a href="{% url 'category_create' store.id %}">Create your first category</a> to get started!
-        </p>
+    <p style="text-align: center; color: #666; padding: 2rem;">
+        No categories yet. <a href="{% url 'category_create' store.id %}">Create your first category</a> to get started!
+    </p>
     {% endif %}
 </div>
 
@@ -61,62 +150,56 @@
             📋 Copy All URLs
         </button>
     </div>
-    
+
     {% for category_data in images_by_category %}
-        <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 2px solid #eee;">
-            <h4 style="color: #2c3e50; margin-bottom: 1rem; font-size: 1.2rem;">
-                📁 {{ category_data.category.name }}
-            </h4>
-            
-            {% for product_data in category_data.products %}
-                <div style="margin-bottom: 1.5rem; margin-left: 1.5rem; padding-left: 1rem; border-left: 3px solid #3498db;">
-                    <h5 style="color: #3498db; margin-bottom: 0.75rem; font-size: 1rem;">
-                        📦 {{ product_data.product.name }}
-                    </h5>
-                    
-                    <table style="width: 100%; margin-top: 0.5rem;">
-                        <thead>
-                            <tr>
-                                <th style="width: 30%;">Image Name</th>
-                                <th style="width: 20%;">Image Code</th>
-                                <th style="width: 45%;">Image URL</th>
-                                <th style="width: 5%;">Copy</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for image in product_data.images %}
-                                <tr>
-                                    <td>{{ image.name }}</td>
-                                    <td style="font-family: monospace; font-size: 0.875rem;">{{ image.image_code }}</td>
-                                    <td>
-                                        <input type="text" 
-                                               value="{{ image.url }}" 
-                                               readonly 
-                                               class="form-control url-input" 
-                                               data-url="{{ image.url }}"
-                                               data-store="{{ store.name }}"
-                                               data-category="{{ category_data.category.name }}"
-                                               data-product="{{ product_data.product.name }}"
-                                               data-label="{{ image.name }}"
-                                               data-code="{{ image.image_code }}"
-                                               style="font-size: 0.875rem; font-family: monospace; cursor: pointer;"
-                                               onclick="this.select();">
-                                    </td>
-                                    <td>
-                                        <button class="btn copy-btn" 
-                                                data-url="{{ image.url }}"
-                                                style="padding: 0.5rem 1rem; font-size: 0.875rem;"
-                                                onclick="copyToClipboard('{{ image.url }}', this)">
-                                            📋 Copy
-                                        </button>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% endfor %}
+    <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 2px solid #eee;">
+        <h4 style="color: #2c3e50; margin-bottom: 1rem; font-size: 1.2rem;">
+            📁 {{ category_data.category.name }}
+        </h4>
+
+        {% for product_data in category_data.products %}
+        <div style="margin-bottom: 1.5rem; margin-left: 1.5rem; padding-left: 1rem; border-left: 3px solid #3498db;">
+            <h5 style="color: #3498db; margin-bottom: 0.75rem; font-size: 1rem;">
+                📦 {{ product_data.product.name }}
+            </h5>
+
+            <table style="width: 100%; margin-top: 0.5rem;">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">Image Name</th>
+                        <th style="width: 20%;">Image Code</th>
+                        <th style="width: 45%;">Image URL</th>
+                        <th style="width: 5%;">Copy</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for image in product_data.images %}
+                    <tr>
+                        <td>{{ image.name }}</td>
+                        <td style="font-family: monospace; font-size: 0.875rem;">{{ image.image_code }}</td>
+                        <td>
+                            <input type="text" value="{{ image.url }}" readonly class="form-control url-input"
+                                data-url="{{ image.url }}" data-store="{{ store.name }}"
+                                data-category="{{ category_data.category.name }}"
+                                data-product="{{ product_data.product.name }}" data-label="{{ image.name }}"
+                                data-code="{{ image.image_code }}"
+                                style="font-size: 0.875rem; font-family: monospace; cursor: pointer;"
+                                onclick="this.select();">
+                        </td>
+                        <td>
+                            <button class="btn copy-btn" data-url="{{ image.url }}"
+                                style="padding: 0.5rem 1rem; font-size: 0.875rem;"
+                                onclick="copyToClipboard('{{ image.url }}', this)">
+                                📋 Copy
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% endfor %}
+    </div>
     {% endfor %}
 </div>
 {% endif %}
@@ -126,17 +209,17 @@
 {% block extra_js %}
 <script>
     function copyToClipboard(text, button) {
-        navigator.clipboard.writeText(text).then(function() {
+        navigator.clipboard.writeText(text).then(function () {
             // Show success feedback
             const originalText = button.innerHTML;
             button.innerHTML = '✓ Copied!';
             button.style.backgroundColor = '#27ae60';
-            
-            setTimeout(function() {
+
+            setTimeout(function () {
                 button.innerHTML = originalText;
                 button.style.backgroundColor = '#3498db';
             }, 2000);
-        }).catch(function(err) {
+        }).catch(function (err) {
             // Fallback for older browsers
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -149,7 +232,7 @@
                 const originalText = button.innerHTML;
                 button.innerHTML = '✓ Copied!';
                 button.style.backgroundColor = '#27ae60';
-                setTimeout(function() {
+                setTimeout(function () {
                     button.innerHTML = originalText;
                     button.style.backgroundColor = '#3498db';
                 }, 2000);
@@ -159,54 +242,54 @@
             document.body.removeChild(textarea);
         });
     }
-    
+
     // Add click handler to all copy buttons
-    document.querySelectorAll('.copy-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
             const url = this.getAttribute('data-url');
             copyToClipboard(url, this);
         });
     });
-    
+
     // Master copy all URLs button
     const copyAllBtn = document.getElementById('copyAllUrls');
     if (copyAllBtn) {
-        copyAllBtn.addEventListener('click', function() {
+        copyAllBtn.addEventListener('click', function () {
             // Collect all image details
             const allDetails = [];
-            document.querySelectorAll('.url-input').forEach(function(input) {
+            document.querySelectorAll('.url-input').forEach(function (input) {
                 const store = input.getAttribute('data-store');
                 const category = input.getAttribute('data-category');
                 const product = input.getAttribute('data-product');
                 const label = input.getAttribute('data-label');
                 const code = input.getAttribute('data-code');
                 const url = input.getAttribute('data-url');
-                
+
                 // Format: Store | Category | Product | Label | Code | URL
                 allDetails.push(`${store} | ${category} | ${product} | ${label} | ${code} | ${url}`);
             });
-            
+
             if (allDetails.length === 0) {
                 alert('No URLs to copy!');
                 return;
             }
-            
+
             // Add header row
             const header = 'Store | Category | Product | Image Label | Image Code | Image URL';
             const allDetailsText = header + '\n' + '='.repeat(header.length) + '\n' + allDetails.join('\n');
-            
+
             // Copy to clipboard
-            navigator.clipboard.writeText(allDetailsText).then(function() {
+            navigator.clipboard.writeText(allDetailsText).then(function () {
                 // Show success feedback
                 const originalText = copyAllBtn.innerHTML;
                 copyAllBtn.innerHTML = '✓ All Copied!';
                 copyAllBtn.style.backgroundColor = '#27ae60';
-                
-                setTimeout(function() {
+
+                setTimeout(function () {
                     copyAllBtn.innerHTML = originalText;
                     copyAllBtn.style.backgroundColor = '#27ae60';
                 }, 2000);
-            }).catch(function(err) {
+            }).catch(function (err) {
                 // Fallback for older browsers
                 const textarea = document.createElement('textarea');
                 textarea.value = allDetailsText;
@@ -219,7 +302,7 @@
                     const originalText = copyAllBtn.innerHTML;
                     copyAllBtn.innerHTML = '✓ All Copied!';
                     copyAllBtn.style.backgroundColor = '#27ae60';
-                    setTimeout(function() {
+                    setTimeout(function () {
                         copyAllBtn.innerHTML = originalText;
                         copyAllBtn.style.backgroundColor = '#27ae60';
                     }, 2000);

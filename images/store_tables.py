@@ -55,7 +55,8 @@ def create_store_tables(store_id):
                 product_id INTEGER NOT NULL,
                 name VARCHAR(200) NOT NULL,
                 image_code VARCHAR(200) NOT NULL,
-                image_file VARCHAR(100) NOT NULL,
+                image_file VARCHAR(100),
+                url VARCHAR(500),
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL,
                 FOREIGN KEY (product_id) REFERENCES store_{store_id}_products(id) ON DELETE CASCADE

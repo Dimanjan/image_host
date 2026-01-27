@@ -55,6 +55,9 @@ urlpatterns = [
         views.image_view,
         name="image_view",
     ),
+    path("api/store/create/", views.api_store_create, name="api_store_create"),
     path("api/search-product/", views.api_search_product, name="api_search_product"),
-    path("api-test/", views.api_test_page, name="api_test_page"),
+    path("stores/<int:store_id>/bulk-upload/", views.product_bulk_upload, name="product_bulk_upload"),
+    path("bulk-upload/sample/", views.download_sample_csv, name="download_sample_csv"),
+    path("api/test/", views.api_test_page, name="api_test_page"),
 ]
