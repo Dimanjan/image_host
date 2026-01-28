@@ -9,85 +9,111 @@
         <p style="color: #666; margin-bottom: 1.5rem;">
             Search for products by name and get their image URLs
         </p>
-        
+
         <form id="searchForm" style="margin-bottom: 2rem;">
             {% csrf_token %}
             <div class="form-group">
                 <label for="storeSelect">Store (Required)</label>
-                <select id="storeSelect" 
-                        name="store_id" 
-                        class="form-control" 
-                        required
-                        style="margin-bottom: 1rem;">
+                <select id="storeSelect" name="store_id" class="form-control" required style="margin-bottom: 1rem;">
                     <option value="">-- Select a Store --</option>
                     {% for store in stores %}
-                        <option value="{{ store.id }}">{{ store.name }}</option>
+                    <option value="{{ store.id }}">{{ store.name }}</option>
                     {% endfor %}
                 </select>
                 <small style="color: #666; font-size: 0.875rem;">Search will only look within the selected store</small>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 2rem;">
                 <label for="productName">Product Name</label>
-                <input type="text" 
-                       id="productName" 
-                       name="product_name" 
-                       class="form-control" 
-                       placeholder="Enter product name to search..."
-                       required
-                       style="margin-bottom: 1rem;">
+                <input type="text" id="productName" name="product_name" class="form-control"
+                    placeholder="Enter product name to search..." required style="margin-bottom: 1rem;">
             </div>
+
+            <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="minPrice">Min Price</label>
+                    <input type="number" id="minPrice" class="form-control" placeholder="0">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="maxPrice">Max Price</label>
+                    <input type="number" id="maxPrice" class="form-control" placeholder="Max">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="sortBy">Sort By</label>
+                    <select id="sortBy" class="form-control">
+                        <option value="relevance">Relevance</option>
+                        <option value="price_asc">Price (Low to High)</option>
+                        <option value="price_desc">Price (High to Low)</option>
+                    </select>
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-success">Search</button>
         </form>
-        
+
         <div id="loading" style="display: none; text-align: center; padding: 2rem;">
             <p>Searching...</p>
         </div>
-        
+
         <div id="results" style="display: none;">
             <h3 style="margin-bottom: 1rem;">Search Results</h3>
             <div id="resultsContent"></div>
         </div>
-        
+
         <div id="jsonResponse" style="display: none; margin-top: 2rem;">
             <h3 style="margin-bottom: 1rem;">JSON Response</h3>
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; border: 1px solid #ddd;">
-                <button class="btn" id="copyJsonBtn" style="margin-bottom: 1rem; padding: 0.5rem 1rem; font-size: 0.875rem;">
+                <button class="btn" id="copyJsonBtn"
+                    style="margin-bottom: 1rem; padding: 0.5rem 1rem; font-size: 0.875rem;">
                     📋 Copy JSON
                 </button>
-                <pre id="jsonContent" style="background: white; padding: 1rem; border-radius: 4px; overflow-x: auto; margin: 0; font-size: 0.875rem; max-height: 500px; overflow-y: auto;"></pre>
+                <pre id="jsonContent"
+                    style="background: white; padding: 1rem; border-radius: 4px; overflow-x: auto; margin: 0; font-size: 0.875rem; max-height: 500px; overflow-y: auto;"></pre>
             </div>
         </div>
-        
+
         <div id="error" style="display: none;" class="message error"></div>
     </div>
-    
+
     <div class="card" style="margin-top: 2rem;">
         <h3 style="margin-bottom: 1rem;">API Documentation</h3>
-        <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.875rem;">
+        <div
+            style="background: #f8f9fa; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.875rem;">
             <p><strong>Endpoint:</strong> POST /api/search-product/</p>
             <p><strong>Parameters:</strong></p>
             <ul style="margin-left: 1.5rem;">
                 <li><code>store_id</code> (integer, required) - ID of the store to search within</li>
                 <li><code>store_name</code> (string, optional) - Name of the store (alternative to store_id)</li>
                 <li><code>product_name</code> (string, required) - Product name to search for</li>
+                <li><code>min_price</code> (number, optional) - Filter minimum price</li>
+                <li><code>max_price</code> (number, optional) - Filter maximum price</li>
+                <li><code>sort</code> (string, optional) - 'relevance', 'price_asc', 'price_desc'</li>
             </ul>
             <p><strong>Response Format:</strong> JSON</p>
-            <p style="color: #e74c3c; margin-top: 0.5rem;"><strong>Note:</strong> Search is scoped to a specific store. Products from other stores will not be returned.</p>
+            <p style="color: #e74c3c; margin-top: 0.5rem;"><strong>Note:</strong> Search is scoped to a specific store.
+                Products from other stores will not be returned.</p>
             <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem; margin-bottom: 1rem;">
                 <h4 style="margin-bottom: 0.5rem; color: #2c3e50;">Search Algorithm:</h4>
                 <p style="margin: 0.5rem 0; color: #333;">
-                    The search uses a <strong>two-tier approach</strong> and is <strong>scoped to a specific store</strong>:
+                    The search uses a <strong>two-tier approach</strong> and is <strong>scoped to a specific
+                        store</strong>:
                 </p>
                 <ol style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
-                    <li><strong>Store Filtering:</strong> First filters products to only those within the selected store</li>
-                    <li><strong>Exact/Partial Match:</strong> Then tries case-insensitive partial matching (Django's <code>icontains</code>) within that store</li>
-                    <li><strong>Fuzzy Search:</strong> If no exact matches, uses fuzzy matching to find similar product names even with typos (still within the same store)</li>
+                    <li><strong>Store Filtering:</strong> First filters products to only those within the selected store
+                    </li>
+                    <li><strong>Exact/Partial Match:</strong> Then tries case-insensitive partial matching (Django's
+                        <code>icontains</code>) within that store
+                    </li>
+                    <li><strong>Fuzzy Search:</strong> If no exact matches, uses fuzzy matching to find similar product
+                        names even with typos (still within the same store)</li>
                 </ol>
                 <ul style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
-                    <li><strong>Store-scoped:</strong> Only searches within the selected store - products from other stores are never returned</li>
+                    <li><strong>Store-scoped:</strong> Only searches within the selected store - products from other
+                        stores are never returned</li>
                     <li><strong>Case-insensitive:</strong> "power", "Power", "POWER" all match the same</li>
-                    <li><strong>Partial match:</strong> Searching "power" will find "Power Bank", "Power Supply", etc. (within the store)</li>
-                    <li><strong>Fuzzy matching:</strong> Handles typos - "powr bank" will still find "Power Bank" (within the store)</li>
+                    <li><strong>Partial match:</strong> Searching "power" will find "Power Bank", "Power Supply", etc.
+                        (within the store)</li>
+                    <li><strong>Fuzzy matching:</strong> Handles typos - "powr bank" will still find "Power Bank"
+                        (within the store)</li>
                     <li><strong>Similarity scoring:</strong> Results are ranked by similarity score (0-100%)</li>
                     <li><strong>Minimum threshold:</strong> Fuzzy matches require at least 60% similarity</li>
                 </ul>
@@ -96,8 +122,10 @@
                 </p>
                 <ul style="margin: 0.5rem 0; padding-left: 1.5rem; color: #333;">
                     <li>Store: "My Store", Search: "bank" → finds "Power Bank", "Bank Charger" in "My Store" only</li>
-                    <li>Store: "My Store", Search: "powr bank" → finds "Power Bank" in "My Store" (fuzzy match, handles typo)</li>
-                    <li>Store: "My Store", Search: "yosnda" → finds "Yosonda" products in "My Store" only (fuzzy match)</li>
+                    <li>Store: "My Store", Search: "powr bank" → finds "Power Bank" in "My Store" (fuzzy match, handles
+                        typo)</li>
+                    <li>Store: "My Store", Search: "yosnda" → finds "Yosonda" products in "My Store" only (fuzzy match)
+                    </li>
                 </ul>
             </div>
             <pre style="background: white; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 1rem;">{
@@ -132,105 +160,113 @@
 
 {% block extra_js %}
 <script>
-    document.getElementById('searchForm').addEventListener('submit', function(e) {
+    document.getElementById('searchForm').addEventListener('submit', function (e) {
         e.preventDefault();
-        
+
         const storeId = document.getElementById('storeSelect').value;
         const productName = document.getElementById('productName').value.trim();
+        const minPrice = document.getElementById('minPrice').value;
+        const maxPrice = document.getElementById('maxPrice').value;
+        const sortBy = document.getElementById('sortBy').value;
+
         const loading = document.getElementById('loading');
         const results = document.getElementById('results');
         const resultsContent = document.getElementById('resultsContent');
         const error = document.getElementById('error');
-        
+
         if (!storeId) {
             error.textContent = 'Please select a store';
             error.style.display = 'block';
             return;
         }
-        
+
         // Hide previous results
         results.style.display = 'none';
         error.style.display = 'none';
         document.getElementById('jsonResponse').style.display = 'none';
         loading.style.display = 'block';
-        
+
         // Make API call
         const formData = new FormData();
         formData.append('product_name', productName);
         formData.append('store_id', storeId);
-        
+
+        if (minPrice) formData.append('min_price', minPrice);
+        if (maxPrice) formData.append('max_price', maxPrice);
+        if (sortBy) formData.append('sort', sortBy);
+
         // Add CSRF token if it exists
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) {
             formData.append('csrfmiddlewaretoken', csrfToken.value);
         }
-        
+
         fetch('/api/search-product/', {
             method: 'POST',
             body: formData
         })
-        .then(response => response.json())
-        .then(data => {
-            loading.style.display = 'none';
-            
-            // Always display JSON response
-            displayJsonResponse(data);
-            
-            if (data.success) {
-                if (data.count === 0) {
-                    error.textContent = data.message || 'No products found';
-                    error.style.display = 'block';
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+
+                // Always display JSON response
+                displayJsonResponse(data);
+
+                if (data.success) {
+                    if (data.count === 0) {
+                        error.textContent = data.message || 'No products found';
+                        error.style.display = 'block';
+                    } else {
+                        displayResults(data);
+                        results.style.display = 'block';
+                    }
                 } else {
-                    displayResults(data);
-                    results.style.display = 'block';
+                    error.textContent = data.message || 'An error occurred';
+                    error.style.display = 'block';
                 }
-            } else {
-                error.textContent = data.message || 'An error occurred';
+            })
+            .catch(err => {
+                loading.style.display = 'none';
+                error.textContent = 'Error: ' + err.message;
                 error.style.display = 'block';
-            }
-        })
-        .catch(err => {
-            loading.style.display = 'none';
-            error.textContent = 'Error: ' + err.message;
-            error.style.display = 'block';
-            
-            // Display error in JSON format too
-            displayJsonResponse({error: err.message, success: false});
-        });
+
+                // Display error in JSON format too
+                displayJsonResponse({ error: err.message, success: false });
+            });
     });
-    
+
     function displayJsonResponse(data) {
         const jsonResponse = document.getElementById('jsonResponse');
         const jsonContent = document.getElementById('jsonContent');
-        
+
         jsonContent.textContent = JSON.stringify(data, null, 2);
         jsonResponse.style.display = 'block';
     }
-    
+
     function copyJsonResponse() {
         const jsonContent = document.getElementById('jsonContent').textContent;
         const btn = document.getElementById('copyJsonBtn');
-        navigator.clipboard.writeText(jsonContent).then(function() {
+        navigator.clipboard.writeText(jsonContent).then(function () {
             const originalText = btn.innerHTML;
             btn.innerHTML = '✓ Copied!';
             btn.style.backgroundColor = '#27ae60';
-            setTimeout(function() {
+            setTimeout(function () {
                 btn.innerHTML = originalText;
                 btn.style.backgroundColor = '#3498db';
             }, 2000);
-        }).catch(function(err) {
+        }).catch(function (err) {
             alert('Failed to copy JSON: ' + err);
         });
     }
-    
+
     // Add click handler for copy JSON button
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const copyJsonBtn = document.getElementById('copyJsonBtn');
         if (copyJsonBtn) {
             copyJsonBtn.addEventListener('click', copyJsonResponse);
         }
     });
-    
+
     function displayResults(data) {
         const resultsContent = document.getElementById('resultsContent');
         const searchType = data.search_type || 'exact';
@@ -239,8 +275,8 @@
             <strong>Found ${data.count} product(s) matching "${data.query}"</strong>
             <span style="color: #27ae60; font-size: 0.875rem;">${searchTypeLabel}</span>
         </p>`;
-        
-        data.results.forEach(function(result) {
+
+        data.results.forEach(function (result) {
             const similarityScore = result.similarity_score !== undefined ? result.similarity_score : 100;
             const scoreColor = similarityScore >= 90 ? '#27ae60' : similarityScore >= 70 ? '#f39c12' : '#e74c3c';
             html += `
@@ -270,8 +306,8 @@
                             <tbody>
                     ` : ''}
                     
-                    ${result.images.map(function(image) {
-                        return `
+                    ${result.images.map(function (image) {
+                return `
                             <tr>
                                 <td style="padding: 0.5rem;">${image.image_label}</td>
                                 <td style="padding: 0.5rem; font-family: monospace; font-size: 0.875rem;">${image.image_code}</td>
@@ -292,7 +328,7 @@
                                 </td>
                             </tr>
                         `;
-                    }).join('')}
+            }).join('')}
                     
                     ${result.images.length > 0 ? `
                             </tbody>
@@ -301,20 +337,20 @@
                 </div>
             `;
         });
-        
+
         resultsContent.innerHTML = html;
     }
-    
+
     function copyToClipboard(text, button) {
-        navigator.clipboard.writeText(text).then(function() {
+        navigator.clipboard.writeText(text).then(function () {
             const originalText = button.innerHTML;
             button.innerHTML = '✓ Copied!';
             button.style.backgroundColor = '#27ae60';
-            setTimeout(function() {
+            setTimeout(function () {
                 button.innerHTML = originalText;
                 button.style.backgroundColor = '#3498db';
             }, 2000);
-        }).catch(function(err) {
+        }).catch(function (err) {
             const textarea = document.createElement('textarea');
             textarea.value = text;
             textarea.style.position = 'fixed';
@@ -326,7 +362,7 @@
                 const originalText = button.innerHTML;
                 button.innerHTML = '✓ Copied!';
                 button.style.backgroundColor = '#27ae60';
-                setTimeout(function() {
+                setTimeout(function () {
                     button.innerHTML = originalText;
                     button.style.backgroundColor = '#3498db';
                 }, 2000);
@@ -338,4 +374,3 @@
     }
 </script>
 {% endblock %}
-

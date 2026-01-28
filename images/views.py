@@ -745,6 +745,49 @@ def api_search_product(request):
             except Exception as e:
                 # Skip products with errors, but log them
                 continue
+        
+        # Filter by price
+        try:
+            min_price = float(request.POST.get("min_price") or request.GET.get("min_price") or 0)
+        except (ValueError, TypeError):
+            min_price = None
+            
+        try:
+            max_price = float(request.POST.get("max_price") or request.GET.get("max_price") or 0)
+        except (ValueError, TypeError):
+            max_price = None
+
+        if min_price is not None or max_price is not None:
+            filtered_results = []
+            for r in results:
+                # Determine effective price (min_discounted_price -> marked_price -> 0)
+                price = r.get("min_discounted_price")
+                if price is None:
+                    price = r.get("marked_price")
+                if price is None:
+                    price = 0.0
+                
+                # Check min price
+                if min_price is not None and min_price > 0:
+                    if price < min_price:
+                        continue
+                
+                # Check max price
+                if max_price is not None and max_price > 0:
+                    if price > max_price:
+                        continue
+                        
+                filtered_results.append(r)
+            results = filtered_results
+
+        # Sort results
+        sort_by = request.POST.get("sort") or request.GET.get("sort") or "relevance"
+        
+        if sort_by == "price_asc":
+            results.sort(key=lambda x: x.get("min_discounted_price") or x.get("marked_price") or float('inf'))
+        elif sort_by == "price_desc":
+            results.sort(key=lambda x: x.get("min_discounted_price") or x.get("marked_price") or 0, reverse=True)
+        # Default is relevance (already sorted by similarity_score)
 
         return JsonResponse(
             {
