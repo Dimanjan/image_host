@@ -62,6 +62,10 @@ htmlcov/
 test_images/
 test_upload.py
 test_verification.md
+tests.py
+**/tests.py
+*_test.py
+test_*.py
 
 # OS
 .DS_Store
